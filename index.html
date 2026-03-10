@@ -366,8 +366,8 @@ async function fetchYT(){
 }
 
 // ── Timer with Category Logging ──
-const TCATS=[...STAGES,'SNS','学習','JBG','コンサル','その他'];
-if(!DB.timerCat)DB.timerCat='作曲';
+const TCATS=[...Object.values(CATS),'その他'];
+if(!DB.timerCat)DB.timerCat=TCATS[0];
 if(!DB.timerLog)DB.timerLog=[];
 
 function timerRunning(){return DB.timerStart!=null}
