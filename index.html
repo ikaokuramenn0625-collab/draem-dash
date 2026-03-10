@@ -27,13 +27,21 @@ body{min-height:100dvh}
 .focus-sub{font-size:.6rem;color:var(--t2);margin-top:.25rem}
 
 /* Timer */
-.timer{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;background:var(--s1);border:1px solid rgba(255,255,255,.06);border-radius:10px;margin-bottom:.8rem}
+.timer-box{background:var(--s1);border:1px solid rgba(255,255,255,.06);border-radius:10px;margin-bottom:.8rem;padding:.6rem .8rem}
+.timer-row{display:flex;align-items:center;gap:.6rem}
 .timer-btn{width:36px;height:36px;border-radius:50%;border:2px solid var(--gold);background:transparent;color:var(--gold);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
 .timer-btn.running{border-color:var(--red);color:var(--red);animation:pulse 2s infinite}
 .timer-btn:active{opacity:.7}
 .timer-time{font-family:Georgia,serif;font-size:1.3rem;font-weight:700;color:var(--gl);min-width:65px}
 .timer-info{flex:1;text-align:right}
 .timer-week{font-size:.6rem;color:var(--t2)}.timer-week b{color:var(--gl)}
+.timer-cats{display:flex;gap:3px;margin-top:.45rem;flex-wrap:wrap}
+.tc{padding:.2rem .4rem;font-size:.48rem;border-radius:4px;background:var(--s2);color:var(--t3);cursor:pointer;border:1px solid transparent;transition:all .15s}
+.tc.sel{background:var(--gdim);color:var(--gold);border-color:rgba(196,160,89,.3);font-weight:600}
+.tc:active{opacity:.7}
+.timer-stats{display:flex;gap:3px;margin-top:.4rem;flex-wrap:wrap}
+.ts-item{font-size:.45rem;color:var(--t3);display:flex;align-items:center;gap:2px}
+.ts-bar{display:inline-block;height:6px;border-radius:2px;background:var(--gold);min-width:2px}
 
 /* Song Progress */
 .song-prog{margin-bottom:1rem}
@@ -140,7 +148,7 @@ body{min-height:100dvh}
 
   <div class="focus" id="focus"></div>
 
-  <div class="timer" id="timer"></div>
+  <div class="timer-box" id="timerBox"></div>
 
   <div class="song-prog" id="songProg"></div>
 
@@ -247,26 +255,79 @@ async function fetchYT(){
   }catch{}
 }
 
-// ── Timer ──
+// ── Timer with Category Logging ──
+const TCATS=[...STAGES,'SNS','学習','JBG','コンサル','その他'];
+if(!DB.timerCat)DB.timerCat='作曲';
+if(!DB.timerLog)DB.timerLog=[];
+
 function timerRunning(){return DB.timerStart!=null}
 function timerElapsed(){return timerRunning()?Math.floor((Date.now()-DB.timerStart)/1000):0}
-function weekTotal(){
-  const ws=DB.timerWeekStart||todayStr;
-  if((new Date(todayStr)-new Date(ws))/864e5>=7){DB.timerTotal=0;DB.timerWeekStart=todayStr;save();}
-  return DB.timerTotal+timerElapsed();
-}
 function fmtTime(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?`${h}h${String(m).padStart(2,'0')}m`:`${m}m`}
+
+function weekLogs(){
+  const d=new Date(today);d.setDate(d.getDate()-d.getDay());
+  const ws=d.toISOString().slice(0,10);
+  return (DB.timerLog||[]).filter(l=>l.date>=ws);
+}
+function weekTotal(){
+  return weekLogs().reduce((s,l)=>s+l.sec,0)+timerElapsed();
+}
+function weekByCat(){
+  const m={};
+  weekLogs().forEach(l=>{m[l.cat]=(m[l.cat]||0)+l.sec;});
+  if(timerRunning())m[DB.timerCat]=(m[DB.timerCat]||0)+timerElapsed();
+  return m;
+}
+
 function toggleTimer(){
-  if(timerRunning()){DB.timerTotal+=timerElapsed();DB.timerStart=null;}
-  else{DB.timerStart=Date.now();recordDay();}
+  if(timerRunning()){
+    const elapsed=timerElapsed();
+    if(elapsed>=10){
+      DB.timerLog.push({date:todayStr,cat:DB.timerCat,sec:elapsed,ts:DB.timerStart});
+    }
+    DB.timerStart=null;
+  }else{
+    DB.timerStart=Date.now();
+    recordDay();
+  }
   save();renderTimer();
 }
+
+function setTimerCat(cat){
+  if(timerRunning()){
+    const elapsed=timerElapsed();
+    if(elapsed>=10){
+      DB.timerLog.push({date:todayStr,cat:DB.timerCat,sec:elapsed,ts:DB.timerStart});
+    }
+    DB.timerStart=Date.now();
+  }
+  DB.timerCat=cat;
+  save();renderTimer();
+}
+
 function renderTimer(){
   const running=timerRunning();
   const el=timerElapsed(),wt=weekTotal();
   const goalH=5;const pct=Math.min(100,wt/3600/goalH*100);
-  $('#timer').innerHTML=`<button class="timer-btn ${running?'running':''}" id="timerToggle">${running?'⏸':'▶'}</button><div class="timer-time">${fmtTime(running?DB.timerTotal+el:DB.timerTotal)}</div><div class="timer-info"><div class="timer-week">今週 <b>${fmtTime(wt)}</b> / ${goalH}h</div><div style="height:3px;border-radius:2px;background:var(--s1);margin-top:3px;overflow:hidden"><div style="height:100%;width:${pct}%;border-radius:2px;background:linear-gradient(90deg,var(--gd),var(--gold))"></div></div></div>`;
+  const sessionTime=running?el:0;
+  const bc=weekByCat();
+  const maxSec=Math.max(1,...Object.values(bc));
+
+  let catBtns=TCATS.map(c=>`<div class="tc ${DB.timerCat===c?'sel':''}" data-tc="${c}">${c}</div>`).join('');
+
+  let stats='';
+  const entries=Object.entries(bc).sort((a,b)=>b[1]-a[1]);
+  if(entries.length){
+    stats=entries.map(([c,s])=>{
+      const w=Math.max(4,Math.round(s/maxSec*40));
+      return `<div class="ts-item"><span class="ts-bar" style="width:${w}px"></span>${c} ${fmtTime(s)}</div>`;
+    }).join('');
+  }
+
+  $('#timerBox').innerHTML=`<div class="timer-row"><button class="timer-btn ${running?'running':''}" id="timerToggle">${running?'⏸':'▶'}</button><div class="timer-time">${fmtTime(sessionTime)}</div><div class="timer-info"><div class="timer-week">${running?'<b>'+DB.timerCat+'</b> 計測中':'今週 <b>'+fmtTime(wt)+'</b> / '+goalH+'h'}</div><div style="height:3px;border-radius:2px;background:var(--s1);margin-top:3px;overflow:hidden"><div style="height:100%;width:${pct}%;border-radius:2px;background:linear-gradient(90deg,var(--gd),var(--gold))"></div></div></div></div><div class="timer-cats">${catBtns}</div>${stats?'<div class="timer-stats">'+stats+'</div>':''}`;
+
   $('#timerToggle').addEventListener('click',toggleTimer);
+  $('#timerBox').querySelectorAll('.tc').forEach(el=>el.addEventListener('click',()=>setTimerCat(el.dataset.tc)));
 }
 
 // ── Tasks ──
