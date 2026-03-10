@@ -29,6 +29,8 @@ body{min-height:100dvh}
 .dream-label{font-size:.48rem;color:var(--t3);margin-top:.15rem;letter-spacing:.06em}
 .dream-track{height:4px;border-radius:2px;background:rgba(255,255,255,.05);margin:.35rem 1.5rem 0;overflow:hidden}
 .dream-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gd),var(--gold),var(--gl));transition:width 1s ease}
+.dream-row{display:flex;justify-content:center;gap:1rem;margin-top:.4rem;font-size:.45rem;color:var(--t3)}
+.dream-row span b{color:var(--gl)}
 
 /* Quote */
 .quote{font-size:.6rem;color:var(--t3);font-style:italic;text-align:center;margin-bottom:.8rem;padding:0 .5rem;line-height:1.5;min-height:1.2rem}
@@ -334,6 +336,24 @@ const dreamDaysLeft=Math.max(0,Math.floor((DREAM_DATE-today)/864e5));
 const dreamTotal=Math.floor((DREAM_DATE-START)/864e5);
 const dreamPct=Math.min(100,Math.round(dayN/dreamTotal*1000)/10);
 let curTab='week';
+
+function calcRealProgress(){
+  const G=DB.goals||DEF_GOALS;
+  const S=SONGS();
+  const released=S.filter(s=>s.status==='released').length;
+  const sub=DB.kpi?.subscribers||0;
+  const plays=DB.kpi?.total_plays||0;
+  const rev=DB.kpi?.revenue||0;
+  const totalSec=(DB.timerLog||[]).reduce((s,l)=>s+l.sec,0);
+  const hoursTarget=500;
+  const hoursPct=Math.min(100,(totalSec/3600)/hoursTarget*100);
+  const songsPct=Math.min(100,released/G.yearSongs*100);
+  const subPct=Math.min(100,sub/G.subTarget*100);
+  const playPct=Math.min(100,plays/G.playTarget*100);
+  const revPct=Math.min(100,rev/G.revenueTarget*100);
+  const realPct=Math.round((songsPct*0.2+subPct*0.2+playPct*0.2+revPct*0.2+hoursPct*0.2)*10)/10;
+  return{realPct,songsPct,subPct,playPct,revPct,hoursPct,released,totalSec:Math.floor(totalSec/3600)};
+}
 
 // ── DB ──
 const DB_KEY='draem_db';
@@ -817,7 +837,8 @@ function calcFocus(){
 // ── Render ──
 function render(){
   // Dream countdown
-  $('#dreamBar').innerHTML=`<div class="dream-pct">${dreamPct}%</div><div class="dream-label">2029年まで あと <b style="color:var(--gl)">${dreamDaysLeft}</b> 日 — Day ${dayN}</div><div class="dream-track"><div class="dream-fill" style="width:${dreamPct}%"></div></div>`;
+  const rp=calcRealProgress();
+  $('#dreamBar').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:.5rem"><div><div class="dream-pct">${rp.realPct}%</div><div class="dream-label">実績 — 曲・登録者・再生・収益・作業時間</div></div><div style="text-align:right;font-size:.5rem;color:var(--t3)"><div>${dreamPct}%</div><div class="dream-label">経過日数</div></div></div><div class="dream-track"><div class="dream-fill" style="width:${rp.realPct}%"></div></div><div class="dream-row"><span>曲 <b>${rp.released}</b>/${(DB.goals||DEF_GOALS).yearSongs}</span><span>登録者 <b>${(DB.kpi?.subscribers||0).toLocaleString()}</b></span><span>再生 <b>${(DB.kpi?.total_plays||0).toLocaleString()}</b></span><span>作業 <b>${rp.totalSec}h</b></span></div><div class="dream-track" style="margin-top:.25rem;height:2px;opacity:.5"><div class="dream-fill" style="width:${dreamPct}%"></div></div><div class="dream-label" style="margin-top:.15rem">2029年まで あと <b style="color:var(--gl)">${dreamDaysLeft}</b> 日 — Day ${dayN}（経過）</div>`;
 
   // Daily quote (changes daily based on date)
   const qi=dayN%QUOTES.length;
