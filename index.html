@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0D0906">
+<title>dræm.</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0D0906;--s1:rgba(255,255,255,.04);--s2:rgba(255,255,255,.07);--gold:#C4A059;--gl:#DFC07A;--gd:#8B6F47;--gdim:rgba(196,160,89,.15);--t1:#E8DDD0;--t2:#A89585;--t3:#6D5A4A;--grn:#5CB870;--red:#C45B5B}
+html{background:var(--bg);color:var(--t1);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans',sans-serif;-webkit-font-smoothing:antialiased;font-size:15px}
+body{min-height:100dvh}
+.w{max-width:480px;margin:0 auto;padding:1.5rem 1.25rem 4rem}
+.hdr{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.8rem}
+.logo{font-family:Georgia,serif;font-size:1.8rem;font-weight:700;background:linear-gradient(135deg,var(--gd),var(--gold),var(--gl));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sync-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:3px;vertical-align:middle}
+.sync-dot.ok{background:var(--grn)}.sync-dot.ng{background:var(--red)}.sync-dot.wait{background:var(--gold);animation:blink 1s infinite}
+.day-b{font-size:.6rem;color:var(--t3);letter-spacing:.06em}
+
+/* Focus */
+.focus{padding:.8rem;background:linear-gradient(135deg,rgba(196,160,89,.1),rgba(196,160,89,.03));border:1px solid rgba(196,160,89,.18);border-radius:12px;margin-bottom:1rem}
+.focus-label{font-size:.5rem;color:var(--gold);text-transform:uppercase;letter-spacing:.15em;font-weight:600;margin-bottom:.3rem}
+.focus-text{font-size:.95rem;font-weight:600;line-height:1.4}
+.focus-sub{font-size:.6rem;color:var(--t2);margin-top:.25rem}
+
+/* Timer */
+.timer{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;background:var(--s1);border:1px solid rgba(255,255,255,.06);border-radius:10px;margin-bottom:.8rem}
+.timer-btn{width:36px;height:36px;border-radius:50%;border:2px solid var(--gold);background:transparent;color:var(--gold);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.timer-btn.running{border-color:var(--red);color:var(--red);animation:pulse 2s infinite}
+.timer-btn:active{opacity:.7}
+.timer-time{font-family:Georgia,serif;font-size:1.3rem;font-weight:700;color:var(--gl);min-width:65px}
+.timer-info{flex:1;text-align:right}
+.timer-week{font-size:.6rem;color:var(--t2)}.timer-week b{color:var(--gl)}
+
+/* Song Progress */
+.song-prog{margin-bottom:1rem}
+.song-title{font-size:.85rem;font-weight:600;margin-bottom:.4rem}
+.song-title span{color:var(--gold)}
+.song-stages{display:flex;gap:2px}
+.stage{flex:1;text-align:center;padding:.35rem .15rem;font-size:.5rem;color:var(--t3);background:var(--s1);border-radius:4px;cursor:pointer;transition:all .15s;line-height:1.2}
+.stage.done{background:var(--gdim);color:var(--gold)}
+.stage.active{background:var(--gold);color:var(--bg);font-weight:700}
+.stage:active{opacity:.7}
+
+/* Pace */
+.pace{display:flex;gap:.5rem;margin-bottom:1rem}
+.pace-card{flex:1;background:var(--s1);border:1px solid rgba(255,255,255,.05);border-radius:9px;padding:.5rem .6rem;text-align:center}
+.pace-num{font-family:Georgia,serif;font-size:1.1rem;font-weight:700}
+.pace-num.on-track{color:var(--grn)}.pace-num.behind{color:var(--red)}.pace-num.neutral{color:var(--gl)}
+.pace-label{font-size:.45rem;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-top:.1rem}
+
+/* Streak */
+.streak{display:flex;align-items:center;gap:.6rem;padding:.5rem .8rem;background:var(--s1);border:1px solid rgba(255,255,255,.06);border-radius:10px;margin-bottom:.6rem}
+.sk-fire{font-size:1.1rem}.sk-num{font-family:Georgia,serif;font-size:1.2rem;font-weight:700;color:var(--gl)}.sk-label{font-size:.55rem;color:var(--t2)}
+.sk-r{margin-left:auto;text-align:right}.sk-stat{font-size:.55rem;color:var(--t3)}.sk-stat b{color:var(--t2)}
+.heatmap{display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:.8rem}
+.hm{width:10px;height:10px;border-radius:2px;background:var(--s1)}.hm.on{background:rgba(196,160,89,.45)}.hm.today{outline:1.5px solid var(--gl);outline-offset:1px}
+
+.sec{font-size:.55rem;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin:1rem 0 .4rem;display:flex;align-items:center;gap:.4rem}
+.sec::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.06)}
+
+/* Tabs */
+.tabs{display:flex;gap:.2rem;margin-bottom:.4rem;flex-wrap:wrap}
+.tab{padding:.3rem .45rem;font-size:.55rem;font-weight:600;color:var(--t3);background:var(--s1);border:1px solid rgba(255,255,255,.05);border-radius:6px;cursor:pointer;white-space:nowrap}
+.tab.active{color:var(--gold);border-color:var(--gold);background:var(--gdim)}
+
+/* Tasks */
+.task{display:flex;align-items:center;gap:.4rem;padding:.45rem .6rem;background:var(--s1);border:1px solid rgba(255,255,255,.05);border-radius:8px;margin-bottom:.25rem;cursor:pointer;transition:background .1s}
+.task:active{background:var(--s2)}.task.done{opacity:.3}.task.done .tk-text{text-decoration:line-through}
+.tk-ck{width:16px;height:16px;border:2px solid var(--t3);border-radius:50%;flex-shrink:0}
+.task.done .tk-ck{border-color:var(--grn);background:var(--grn)}
+.tk-body{flex:1;min-width:0}.tk-text{font-size:.75rem;font-weight:500;line-height:1.3}
+.tk-meta{font-size:.5rem;color:var(--t3);margin-top:.05rem;display:flex;gap:.35rem;flex-wrap:wrap}
+.tk-cat{font-weight:600}
+.tk-due{font-weight:600;padding:.05rem .2rem;border-radius:3px}
+.tk-due.safe{color:var(--grn)}.tk-due.warn{color:#D4A83A;background:rgba(212,168,58,.1)}
+.tk-due.urgent{color:var(--red);background:rgba(196,91,91,.12)}.tk-due.overdue{color:#fff;background:var(--red)}
+.tk-del{color:var(--t3);font-size:.55rem;padding:.1rem .25rem}
+@media(hover:none){.tk-del{opacity:.5}}
+.task-empty{text-align:center;padding:.8rem;color:var(--t3);font-size:.7rem;background:var(--s1);border-radius:8px;border:1px dashed rgba(255,255,255,.08)}
+.task-add{display:flex;gap:.3rem;margin-top:.3rem}
+.tk-inp{flex:1;background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:.4rem .55rem;color:var(--t1);font-size:.75rem;font-family:inherit;outline:none}
+.tk-inp:focus{border-color:var(--gold)}.tk-inp::placeholder{color:var(--t3)}
+.tk-btn{background:var(--gold);color:var(--bg);border:none;border-radius:7px;padding:0 .6rem;font-size:.6rem;font-weight:600;cursor:pointer;font-family:inherit}
+.sel{background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:.4rem .15rem;color:var(--t2);font-size:.55rem;font-family:inherit;outline:none;-webkit-appearance:none}
+
+/* Phase */
+.phase-ring{display:flex;justify-content:center;gap:.35rem;margin:.5rem 0}
+.ph{text-align:center}.ph-c{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:1.1rem;font-weight:700;border:2px solid var(--t3);color:var(--t3)}
+.ph-c.released{border-color:var(--gold);color:var(--gold);background:var(--gdim)}
+.ph-c.in_progress{border-color:var(--gl);color:var(--gl);box-shadow:0 0 12px rgba(196,160,89,.3);animation:pulse 2.5s ease-in-out infinite}
+.ph-c.planned{opacity:.3}
+.ph-t{font-size:.5rem;color:var(--t2);margin-top:.15rem}
+.ph-conn{width:12px;height:2px;background:var(--t3);opacity:.3;align-self:center;margin-top:-.6rem}
+.ph-conn.done{background:var(--gold);opacity:.6}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin:.4rem 0}
+.kpi{background:var(--s1);border:1px solid rgba(255,255,255,.05);border-radius:8px;padding:.45rem .55rem;cursor:pointer}
+.kpi:active{background:var(--s2)}
+.kpi-l{font-size:.45rem;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:500}
+.kpi-v{font-family:Georgia,serif;font-size:1.2rem;font-weight:600;color:var(--t1);margin:.05rem 0}
+.kpi-t{font-size:.45rem;color:var(--t3)}
+.kpi-bar{height:3px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:.25rem;overflow:hidden}
+.kpi-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gd),var(--gold));transition:width .6s ease}
+
+/* Mission */
+.mission{text-align:center;margin:1.2rem 0 .5rem;padding:.8rem .5rem;border-top:1px solid rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.04)}
+.mission-text{font-family:Georgia,serif;font-size:.95rem;font-weight:600;color:var(--t1);line-height:1.7}
+.mission-sub{font-size:.6rem;color:var(--t3);margin-top:.3rem;font-style:italic}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}.modal{background:#1a1410;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:1rem;width:92%;max-width:300px}
+.modal h3{font-size:.8rem;color:var(--t1);margin-bottom:.6rem}
+.mf{margin-bottom:.4rem}.mf label{display:block;font-size:.5rem;color:var(--t3);margin-bottom:.1rem;text-transform:uppercase;letter-spacing:.08em}
+.mf input,.mf textarea{width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.75rem;font-family:inherit;outline:none}
+.mf input:focus,.mf textarea:focus{border-color:var(--gold)}
+.mf textarea{resize:vertical;min-height:50px}
+.m-acts{display:flex;gap:.35rem;margin-top:.6rem}
+.m-acts button{flex:1;padding:.35rem;border:none;border-radius:6px;font-size:.65rem;font-weight:600;cursor:pointer;font-family:inherit}
+.m-save{background:var(--gold);color:var(--bg)}.m-cancel{background:var(--s2);color:var(--t2)}
+
+.ftr{text-align:center;margin-top:.8rem;font-size:.45rem;color:rgba(255,255,255,.12)}
+.gear{cursor:pointer;font-size:.6rem;color:var(--t3);padding:.15rem}
+
+@keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(196,160,89,.3)}50%{box-shadow:0 0 22px rgba(196,160,89,.6)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="hdr">
+    <div class="logo">dræm.<span class="sync-dot" id="syncDot"></span></div>
+    <div class="day-b" id="dayB"></div>
+  </div>
+
+  <div class="focus" id="focus"></div>
+
+  <div class="timer" id="timer"></div>
+
+  <div class="song-prog" id="songProg"></div>
+
+  <div class="pace" id="pace"></div>
+
+  <div class="streak" id="streak"></div>
+  <div class="heatmap" id="heatmap"></div>
+
+  <div class="sec">Tasks</div>
+  <div class="tabs" id="tabs"></div>
+  <div id="tasks"></div>
+  <div class="task-add">
+    <input type="text" class="tk-inp" id="taskInp" placeholder="タスクを追加..." style="flex:2">
+    <button class="tk-btn" id="taskBtn">追加</button>
+  </div>
+  <div class="task-add" style="margin-top:.15rem">
+    <select class="sel" id="catSel" style="flex:1">
+      <option value="">カテゴリ</option>
+      <option value="song">🎵 作曲</option>
+      <option value="mix">🎛️ MIX</option>
+      <option value="mv">🎬 MV</option>
+      <option value="vocal">🎤 ボーカル</option>
+      <option value="sns">📱 SNS</option>
+      <option value="release">🚀 リリース</option>
+      <option value="learn">📖 学習</option>
+      <option value="jbg">🎓 JBG</option>
+      <option value="work">💼 コンサル</option>
+      <option value="life">🏠 生活</option>
+    </select>
+    <input type="date" class="tk-inp" id="dueSel" style="flex:1;font-size:.55rem">
+  </div>
+
+  <div class="sec">Journey</div>
+  <div class="phase-ring" id="phaseRing"></div>
+
+  <div class="sec">Growth <span style="font-size:.45rem;color:var(--t3);font-weight:400;letter-spacing:0;text-transform:none">(tap to edit)</span></div>
+  <div class="kpi-row" id="kpiGrid"></div>
+
+  <div class="mission" id="mission"></div>
+
+  <div class="ftr"><span id="ftr"></span> <span class="gear" id="gearBtn">⚙️</span></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modal">
+    <h3 id="mTitle"></h3>
+    <div id="mFields"></div>
+    <div class="m-acts"><button class="m-cancel" id="mCancel">戻る</button><button class="m-save" id="mSave">保存</button></div>
+  </div>
+</div>
+
+<script>
+const SONGS=[
+  {char:'起',title:'再起',status:'released',date:'2026-02-11'},
+  {char:'承',title:'継承',status:'in_progress',date:'2026-03-13'},
+  {char:'転',title:null,status:'planned',date:null},
+  {char:'結',title:null,status:'planned',date:null}
+];
+const STAGES=['作曲','アレンジ','MIX','ボーカル','MV','リリース'];
+const CATS={song:'🎵作曲',mix:'🎛️MIX',mv:'🎬MV',vocal:'🎤ボーカル',sns:'📱SNS',release:'🚀リリース',learn:'📖学習',jbg:'🎓JBG',work:'💼コンサル',life:'🏠生活'};
+const $=s=>document.querySelector(s);
+const START=new Date('2026-02-11'),today=new Date();today.setHours(0,0,0,0);
+const todayStr=today.toISOString().slice(0,10);
+const dayN=Math.floor((today-START)/864e5);
+let curTab='week';
+
+// ── DB ──
+const DB_KEY='draem_db';
+function loadDB(){try{return JSON.parse(localStorage.getItem(DB_KEY))||defDB()}catch{return defDB()}}
+function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,songs:7,revenue:0},songStage:0,timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',ver:0}}
+function saveDB(){DB.ver=(DB.ver||0)+1;DB.updated=new Date().toISOString();localStorage.setItem(DB_KEY,JSON.stringify(DB));}
+let DB=loadDB();
+if(!DB.mission)DB.mission='2029年、音楽で生きる。\nそのために今日も1歩。';
+if(DB.songStage===undefined)DB.songStage=0;
+if(!DB.timerTotal)DB.timerTotal=0;
+
+// ── Gist Sync ──
+const GK='draem_gist';
+function gc(){try{return JSON.parse(localStorage.getItem(GK))||{}}catch{return{}}}
+function ss(s){$('#syncDot').className='sync-dot '+s}
+async function syncPull(){const c=gc();if(!c.id||!c.token)return;ss('wait');try{const r=await fetch('https://api.github.com/gists/'+c.id,{headers:{'Authorization':'token '+c.token}});if(!r.ok)throw 0;const g=await r.json();const rm=JSON.parse(g.files['draem.json'].content);if((rm.ver||0)>(DB.ver||0)){DB=rm;localStorage.setItem(DB_KEY,JSON.stringify(DB));render();}ss('ok');}catch{ss('ng');}}
+let st=null;function syncPush(){const c=gc();if(!c.id||!c.token)return;clearTimeout(st);st=setTimeout(async()=>{ss('wait');try{await fetch('https://api.github.com/gists/'+c.id,{method:'PATCH',headers:{'Authorization':'token '+c.token,'Content-Type':'application/json'},body:JSON.stringify({files:{'draem.json':{content:JSON.stringify(DB)}}})});ss('ok');}catch{ss('ng');}},1500);}
+function save(){saveDB();syncPush();}
+
+// ── Timer ──
+function timerRunning(){return DB.timerStart!=null}
+function timerElapsed(){return timerRunning()?Math.floor((Date.now()-DB.timerStart)/1000):0}
+function weekTotal(){
+  const ws=DB.timerWeekStart||todayStr;
+  if((new Date(todayStr)-new Date(ws))/864e5>=7){DB.timerTotal=0;DB.timerWeekStart=todayStr;save();}
+  return DB.timerTotal+timerElapsed();
+}
+function fmtTime(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>0?`${h}h${String(m).padStart(2,'0')}m`:`${m}m`}
+function toggleTimer(){
+  if(timerRunning()){DB.timerTotal+=timerElapsed();DB.timerStart=null;}
+  else{DB.timerStart=Date.now();recordDay();}
+  save();renderTimer();
+}
+function renderTimer(){
+  const running=timerRunning();
+  const el=timerElapsed(),wt=weekTotal();
+  const goalH=5;const pct=Math.min(100,wt/3600/goalH*100);
+  $('#timer').innerHTML=`<button class="timer-btn ${running?'running':''}" id="timerToggle">${running?'⏸':'▶'}</button><div class="timer-time">${fmtTime(running?DB.timerTotal+el:DB.timerTotal)}</div><div class="timer-info"><div class="timer-week">今週 <b>${fmtTime(wt)}</b> / ${goalH}h</div><div style="height:3px;border-radius:2px;background:var(--s1);margin-top:3px;overflow:hidden"><div style="height:100%;width:${pct}%;border-radius:2px;background:linear-gradient(90deg,var(--gd),var(--gold))"></div></div></div>`;
+  $('#timerToggle').addEventListener('click',toggleTimer);
+}
+
+// ── Tasks ──
+function addTask(text,cat,due){if(!text.trim())return;DB.tasks.push({id:Date.now(),text:text.trim(),cat:cat||'',due:due||'',done:false,created:todayStr,doneDate:''});recordDay();save();render();}
+function toggle(id){const t=DB.tasks.find(x=>x.id===id);if(t){t.done=!t.done;t.doneDate=t.done?todayStr:'';}recordDay();save();render();}
+function del(id){DB.tasks=DB.tasks.filter(x=>x.id!==id);save();render();}
+function dueBadge(due){if(!due)return'';const d=Math.ceil((new Date(due)-today)/864e5);if(d<0)return`<span class="tk-due overdue">${-d}日超過</span>`;if(d===0)return`<span class="tk-due urgent">今日</span>`;if(d<=3)return`<span class="tk-due urgent">あと${d}日</span>`;if(d<=7)return`<span class="tk-due warn">あと${d}日</span>`;return`<span class="tk-due safe">〆${due.slice(5)}</span>`;}
+function filtered(){const wk=new Date(today);wk.setDate(wk.getDate()+7);const ws=wk.toISOString().slice(0,10);let l=DB.tasks.slice();if(curTab==='week')l=l.filter(x=>!x.done&&(!x.due||x.due<=ws));else if(curTab==='all')l=l.filter(x=>!x.done);else if(curTab==='done')l=l.filter(x=>x.done).slice(-30).reverse();else l=l.filter(x=>!x.done&&x.cat===curTab);l.sort((a,b)=>{if(a.done!==b.done)return a.done?1:-1;return(a.due||'9999')<(b.due||'9999')?-1:1;});return l;}
+
+function recordDay(){if(!DB.days.includes(todayStr))DB.days.push(todayStr);}
+function streak(){const d=new Set(DB.days);let s=0,dt=new Date(today);while(true){const k=dt.toISOString().slice(0,10);if(d.has(k)){s++;dt.setDate(dt.getDate()-1);}else if(s===0){dt.setDate(dt.getDate()-1);}else break;}return s;}
+function days30(){const c=new Date(today);c.setDate(c.getDate()-30);return DB.days.filter(x=>new Date(x)>=c).length;}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+// ── Render ──
+function render(){
+  // Focus: what to do tonight
+  const cur=SONGS.find(s=>s.status==='in_progress');
+  const stage=STAGES[DB.songStage||0];
+  const todoCount=DB.tasks.filter(x=>!x.done).length;
+  const urgent=DB.tasks.filter(x=>!x.done&&x.due).sort((a,b)=>a.due<b.due?-1:1)[0];
+  let focusText='',focusSub='';
+  if(urgent&&urgent.due<=todayStr){focusText=urgent.text;focusSub='⚠️ 期限超過 — 最優先で対応';}
+  else if(cur){focusText=`「${cur.title}」${stage}`;focusSub=`${STAGES.indexOf(stage)+1}/${STAGES.length} ステージ${urgent?' · 次の〆切: '+urgent.text:''}`;}
+  else{focusText=todoCount>0?'タスクを1つ片付けよう':'新しい曲を始めよう';focusSub='';}
+  $('#focus').innerHTML=`<div class="focus-label">Tonight's Focus</div><div class="focus-text">${esc(focusText)}</div>${focusSub?'<div class="focus-sub">'+focusSub+'</div>':''}`;
+
+  renderTimer();
+
+  // Song stage progress
+  if(cur){
+    let sh=`<div class="song-title"><span>${cur.char}</span>「${cur.title}」</div><div class="song-stages">`;
+    STAGES.forEach((s,i)=>{const cls=i<DB.songStage?'done':i===DB.songStage?'active':'';sh+=`<div class="stage ${cls}" data-si="${i}">${s}</div>`;});
+    sh+='</div>';
+    $('#songProg').innerHTML=sh;
+    $('#songProg').querySelectorAll('.stage').forEach(el=>el.addEventListener('click',()=>{DB.songStage=+el.dataset.si;save();render();}));
+  }
+
+  // Pace: on track?
+  const weeksElapsed=Math.max(1,Math.ceil(dayN/7));
+  const songsTarget=10,monthsTarget=12;
+  const expectedSongs=Math.round(songsTarget/52*weeksElapsed*10)/10;
+  const released=SONGS.filter(s=>s.status==='released').length;
+  const onTrack=released>=Math.floor(expectedSongs);
+  const nextRelease=cur?.date?Math.ceil((new Date(cur.date)-today)/864e5):null;
+  $('#pace').innerHTML=`
+    <div class="pace-card"><div class="pace-num neutral">${released}<span style="font-size:.7rem">/${songsTarget}</span></div><div class="pace-label">Songs Y1</div></div>
+    <div class="pace-card"><div class="pace-num ${onTrack?'on-track':'behind'}">${onTrack?'On Track':'Behind'}</div><div class="pace-label">Pace</div></div>
+    <div class="pace-card"><div class="pace-num neutral">${nextRelease!=null?nextRelease+'d':'—'}</div><div class="pace-label">Next Release</div></div>`;
+
+  // Streak
+  const sk=streak(),d30=days30(),dc=DB.tasks.filter(x=>x.done).length;
+  $('#streak').innerHTML=`<div class="sk-fire">${sk>0?'🔥':'💤'}</div><div><div class="sk-num">${sk}</div><div class="sk-label">day streak</div></div><div class="sk-r"><div class="sk-stat"><b>${d30}</b>/30 days</div><div class="sk-stat"><b>${dc}</b> done</div></div>`;
+
+  const days=new Set(DB.days);let hm='';
+  for(let i=29;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);const k=d.toISOString().slice(0,10);hm+=`<div class="hm ${days.has(k)?'on':''} ${i===0?'today':''}"></div>`;}
+  $('#heatmap').innerHTML=hm;
+
+  // Tabs
+  const todo=DB.tasks.filter(x=>!x.done),done=DB.tasks.filter(x=>x.done);
+  const cc={};todo.forEach(t=>{if(t.cat)cc[t.cat]=(cc[t.cat]||0)+1;});
+  let th=`<div class="tab ${curTab==='week'?'active':''}" data-t="week">今週</div>`;
+  th+=`<div class="tab ${curTab==='all'?'active':''}" data-t="all">全て ${todo.length}</div>`;
+  Object.keys(CATS).forEach(k=>{if(cc[k])th+=`<div class="tab ${curTab===k?'active':''}" data-t="${k}">${CATS[k]}</div>`;});
+  th+=`<div class="tab ${curTab==='done'?'active':''}" data-t="done">完了</div>`;
+  $('#tabs').innerHTML=th;
+  $('#tabs').querySelectorAll('.tab').forEach(el=>el.addEventListener('click',()=>{curTab=el.dataset.t;render();}));
+
+  const list=filtered();
+  if(!list.length){$('#tasks').innerHTML=`<div class="task-empty">${curTab==='done'?'完了タスクなし':'タスクを追加して目標に向かおう'}</div>`;}
+  else{$('#tasks').innerHTML=list.map(t=>`<div class="task ${t.done?'done':''}" data-id="${t.id}"><div class="tk-ck"></div><div class="tk-body"><div class="tk-text">${esc(t.text)}</div><div class="tk-meta">${t.cat?'<span class="tk-cat">'+CATS[t.cat]+'</span>':''}${dueBadge(t.due)}${t.doneDate?'<span>✓'+t.doneDate.slice(5)+'</span>':''}</div></div><div class="tk-del" data-d="${t.id}">✕</div></div>`).join('');
+  $('#tasks').querySelectorAll('.task').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.tk-del'))toggle(+el.dataset.id);}));
+  $('#tasks').querySelectorAll('.tk-del').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();del(+el.dataset.d);}));}
+
+  // KPI
+  const KD=[{k:'subscribers',l:'Subscribers',t:1000,f:v=>v.toLocaleString()},{k:'total_plays',l:'Plays',t:50000,f:v=>v.toLocaleString()},{k:'songs',l:'Songs',t:10,f:v=>v+''},{k:'revenue',l:'Revenue',t:500000,f:v=>'¥'+v.toLocaleString()}];
+  $('#kpiGrid').innerHTML=KD.map(d=>{const v=DB.kpi[d.k]||0;const p=Math.min(100,d.t>0?v/d.t*100:0);return`<div class="kpi"><div class="kpi-l">${d.l}</div><div class="kpi-v">${d.f(v)}</div><div class="kpi-t">/ ${d.f(d.t)}</div><div class="kpi-bar"><div class="kpi-fill" style="width:${p}%"></div></div></div>`;}).join('');
+  $('#kpiGrid').querySelectorAll('.kpi').forEach(el=>el.addEventListener('click',()=>openModal('kpi')));
+
+  // Phase
+  let ph='';SONGS.forEach((s,i)=>{if(i>0)ph+=`<div class="ph-conn ${s.status==='released'||SONGS[i-1].status==='released'?'done':''}"></div>`;ph+=`<div class="ph"><div class="ph-c ${s.status}">${s.char}</div><div class="ph-t">${s.title||'—'}</div></div>`;});
+  $('#phaseRing').innerHTML=ph;
+
+  // Mission
+  const lines=(DB.mission||'').split('\n');
+  $('#mission').innerHTML=`<div class="mission-text">${esc(lines[0])}</div>${lines[1]?'<div class="mission-sub">'+esc(lines[1])+'</div>':''}`;
+  $('#mission').style.cursor='pointer';
+  $('#mission').onclick=()=>openModal('mission');
+}
+
+// ── Modals ──
+function openModal(type){
+  if(type==='kpi'){
+    const KD=[{k:'subscribers',l:'Subscribers'},{k:'total_plays',l:'Total Plays'},{k:'songs',l:'Songs'},{k:'revenue',l:'Revenue (¥)'}];
+    $('#mTitle').textContent='KPI 更新';
+    $('#mFields').innerHTML=KD.map(d=>`<div class="mf"><label>${d.l}</label><input type="number" data-k="${d.k}" value="${DB.kpi[d.k]||0}"></div>`).join('');
+    $('#mSave').onclick=()=>{$('#mFields').querySelectorAll('input').forEach(i=>{DB.kpi[i.dataset.k]=+(i.value||0);});save();render();$('#modalBg').classList.remove('show');};
+  }else if(type==='mission'){
+    $('#mTitle').textContent='Mission';
+    $('#mFields').innerHTML=`<div class="mf"><label>あなたのミッション</label><textarea id="missionText" rows="3">${esc(DB.mission||'')}</textarea></div><div style="font-size:.5rem;color:var(--t3)">1行目=メイン、2行目=サブ</div>`;
+    $('#mSave').onclick=()=>{DB.mission=$('#missionText').value;save();render();$('#modalBg').classList.remove('show');};
+  }else if(type==='sync'){
+    const c=gc();
+    $('#mTitle').textContent='Sync 設定';
+    $('#mFields').innerHTML=`<div class="mf"><label>Gist ID</label><input id="sG" value="${c.id||''}"></div><div class="mf"><label>GitHub Token</label><input id="sT" type="password" value="${c.token||''}"></div>`;
+    $('#mSave').onclick=()=>{localStorage.setItem(GK,JSON.stringify({id:$('#sG').value.trim(),token:$('#sT').value.trim()}));$('#modalBg').classList.remove('show');syncPull();};
+  }
+  $('#modalBg').classList.add('show');
+}
+$('#mCancel').addEventListener('click',()=>$('#modalBg').classList.remove('show'));
+$('#modalBg').addEventListener('click',e=>{if(e.target===$('#modalBg'))$('#modalBg').classList.remove('show');});
+
+function submitTask(){addTask($('#taskInp').value,$('#catSel').value,$('#dueSel').value);$('#taskInp').value='';$('#dueSel').value='';}
+$('#taskBtn').addEventListener('click',submitTask);
+$('#taskInp').addEventListener('keydown',e=>{if(e.key==='Enter')submitTask();});
+$('#gearBtn').addEventListener('click',()=>openModal('sync'));
+
+// Timer auto-update
+setInterval(()=>{if(timerRunning())renderTimer();},10000);
+
+// Init
+const dn=['日','月','火','水','木','金','土'];
+$('#dayB').textContent=`${today.getMonth()+1}/${today.getDate()} (${dn[today.getDay()]}) — Day ${dayN}`;
+$('#ftr').textContent=`Day ${dayN}`;
+render();
+syncPull();
+</script>
+</body>
+</html>

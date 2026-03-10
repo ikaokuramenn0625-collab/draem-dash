@@ -1,0 +1,21 @@
+{
+  "_comment": "4文字セットのアーク定義。次のアークを追加するだけでOK。",
+  "arcs": [
+    {
+      "id": "kishoten",
+      "label": "起承転結シリーズ",
+      "theme": "起承転結の文字を使った4曲",
+      "songs": [
+        {"char": "起", "title": "再起",   "dir": "saitan",  "status": "released",    "date": "2026-02-11"},
+        {"char": "承", "title": "継承",   "dir": "keisho",  "status": "in_progress", "date": "2026-03-13"},
+        {"char": "転", "title": null,     "status": "planned",     "date": null},
+        {"char": "結", "title": null,     "status": "planned",     "date": null}
+      ]
+    }
+  ],
+  "next_arc_ideas": [
+    {"label": "春夏秋冬シリーズ", "chars": ["春", "夏", "秋", "冬"]},
+    {"label": "喜怒哀楽シリーズ", "chars": ["喜", "怒", "哀", "楽"]},
+    {"label": "東西南北シリーズ", "chars": ["東", "西", "南", "北"]}
+  ]
+}
