@@ -16,8 +16,8 @@ body{min-height:100dvh}
 .w{max-width:480px;margin:0 auto;padding:1.5rem 1.25rem 4rem}
 .hdr{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.8rem}
 .logo{font-family:Georgia,serif;font-size:1.8rem;font-weight:700;background:linear-gradient(135deg,var(--gd),var(--gold),var(--gl));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sync-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:3px;vertical-align:middle}
-.sync-dot.ok{background:var(--grn)}.sync-dot.ng{background:var(--red)}.sync-dot.wait{background:var(--gold);animation:blink 1s infinite}
+.sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:4px;vertical-align:middle;cursor:pointer}
+.sync-dot.ok{background:var(--grn)}.sync-dot.ng{background:var(--red)}.sync-dot.wait{background:var(--gold);animation:blink 1s infinite}.sync-dot.off{background:var(--t3);opacity:.4}
 .day-b{font-size:.6rem;color:var(--t3);letter-spacing:.06em}
 
 /* Focus */
@@ -249,13 +249,97 @@ if(!DB.mission)DB.mission='2029年、音楽で生きる。\nそのために今�
 if(DB.songStage===undefined)DB.songStage=0;
 if(!DB.timerTotal)DB.timerTotal=0;
 
-// ── Gist Sync ──
+// ── Gist Sync (robust) ──
 const GK='draem_gist';
+let lastSyncHash='',syncBusy=false;
 function gc(){try{return JSON.parse(localStorage.getItem(GK))||{}}catch{return{}}}
-function ss(s){$('#syncDot').className='sync-dot '+s}
-async function syncPull(){const c=gc();if(!c.id||!c.token)return;ss('wait');try{const r=await fetch('https://api.github.com/gists/'+c.id,{headers:{'Authorization':'token '+c.token}});if(!r.ok)throw 0;const g=await r.json();const rm=JSON.parse(g.files['draem.json'].content);if((rm.ver||0)>(DB.ver||0)){DB=rm;localStorage.setItem(DB_KEY,JSON.stringify(DB));render();}ss('ok');}catch{ss('ng');}}
-let st=null;function syncPush(){const c=gc();if(!c.id||!c.token)return;clearTimeout(st);st=setTimeout(async()=>{ss('wait');try{await fetch('https://api.github.com/gists/'+c.id,{method:'PATCH',headers:{'Authorization':'token '+c.token,'Content-Type':'application/json'},body:JSON.stringify({files:{'draem.json':{content:JSON.stringify(DB)}}})});ss('ok');}catch{ss('ng');}},1500);}
+function ss(s){const el=$('#syncDot');if(el)el.className='sync-dot '+s;}
+
+function dbHash(){return JSON.stringify(DB).length+'_'+(DB.ver||0)+'_'+(DB.updated||'');}
+
+function mergeDB(remote){
+  const local=DB;
+  if(!remote||typeof remote!=='object')return false;
+  let changed=false;
+
+  // Merge tasks: combine by id, prefer newer doneDate, keep additions from both sides
+  const localMap=new Map((local.tasks||[]).map(t=>[t.id,t]));
+  const remoteMap=new Map((remote.tasks||[]).map(t=>[t.id,t]));
+  const allIds=new Set([...localMap.keys(),...remoteMap.keys()]);
+  const merged=[];
+  allIds.forEach(id=>{
+    const l=localMap.get(id),r=remoteMap.get(id);
+    if(l&&r){merged.push(l.done&&!r.done?l:!l.done&&r.done?r:(l.id>=r.id?l:r));}
+    else{merged.push(l||r);}
+  });
+  if(JSON.stringify(merged)!==JSON.stringify(local.tasks)){local.tasks=merged;changed=true;}
+
+  // Merge timer logs: union by timestamp
+  const localTs=new Set((local.timerLog||[]).map(l=>l.ts));
+  (remote.timerLog||[]).forEach(l=>{if(!localTs.has(l.ts)){(local.timerLog=local.timerLog||[]).push(l);changed=true;}});
+
+  // Merge days: union
+  const daySet=new Set([...(local.days||[]),...(remote.days||[])]);
+  if(daySet.size!==(local.days||[]).length){local.days=[...daySet].sort();changed=true;}
+
+  // KPI: take higher values (more recent data)
+  ['subscribers','total_plays','songs','revenue'].forEach(k=>{
+    if((remote.kpi?.[k]||0)>(local.kpi?.[k]||0)){local.kpi[k]=remote.kpi[k];changed=true;}
+  });
+
+  // Song stage, mission: take from whichever is newer
+  if((remote.updated||'')>(local.updated||'')){
+    if(remote.songStage!==undefined&&remote.songStage!==local.songStage){local.songStage=remote.songStage;changed=true;}
+    if(remote.mission&&remote.mission!==local.mission){local.mission=remote.mission;changed=true;}
+    if(remote.timerCat&&remote.timerCat!==local.timerCat){local.timerCat=remote.timerCat;changed=true;}
+  }
+
+  return changed;
+}
+
+async function syncPull(){
+  const c=gc();if(!c.id||!c.token)return;
+  if(syncBusy)return;syncBusy=true;
+  ss('wait');
+  try{
+    const r=await fetch('https://api.github.com/gists/'+c.id,{headers:{'Authorization':'token '+c.token,'If-None-Match':''}});
+    if(r.status===304){ss('ok');syncBusy=false;return;}
+    if(!r.ok)throw 0;
+    const g=await r.json();
+    const rm=JSON.parse(g.files['draem.json'].content);
+    const changed=mergeDB(rm);
+    if(changed){
+      DB.ver=Math.max(DB.ver||0,rm.ver||0)+1;
+      DB.updated=new Date().toISOString();
+      localStorage.setItem(DB_KEY,JSON.stringify(DB));
+      lastSyncHash=dbHash();
+      render();
+      await syncPush(true);
+    }else{
+      lastSyncHash=dbHash();
+    }
+    ss('ok');
+  }catch{ss('ng');}
+  syncBusy=false;
+}
+
+let st=null;
+async function syncPush(immediate){
+  const c=gc();if(!c.id||!c.token)return;
+  if(!immediate){clearTimeout(st);st=setTimeout(()=>syncPush(true),1200);return;}
+  ss('wait');
+  try{
+    await fetch('https://api.github.com/gists/'+c.id,{method:'PATCH',headers:{'Authorization':'token '+c.token,'Content-Type':'application/json'},body:JSON.stringify({files:{'draem.json':{content:JSON.stringify(DB)}}})});
+    lastSyncHash=dbHash();
+    ss('ok');
+  }catch{ss('ng');}
+}
+
 function save(){saveDB();syncPush();}
+
+// Auto-sync: poll every 30s + on tab focus
+setInterval(()=>{if(!document.hidden)syncPull();},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncPull();});
 
 // ── YouTube Auto KPI ──
 const YT_KEY='draem_yt';
@@ -534,6 +618,8 @@ render();
 syncPull();
 fetchYT();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+$('#syncDot').addEventListener('click',()=>{const c=gc();if(!c.id||!c.token){openModal('sync');}else{syncPull();}});
+{const c=gc();if(!c.id||!c.token)ss('off');}
 </script>
 </body>
 </html>
