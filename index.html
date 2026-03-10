@@ -158,6 +158,18 @@ body{min-height:100dvh}
 .al-add-btn{font-size:.48rem;color:var(--gold);cursor:pointer;padding:.15rem .35rem;border:1px solid rgba(196,160,89,.3);border-radius:4px;white-space:nowrap}
 .al-add-btn:active{background:var(--gdim)}
 
+/* Weekly Review */
+.wr{background:var(--s1);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.6rem .8rem}
+.wr-head{font-size:.6rem;color:var(--gold);font-weight:600;margin-bottom:.4rem}
+.wr-item{font-size:.55rem;color:var(--t2);line-height:1.6;padding:.15rem 0}
+.wr-item b{color:var(--t1)}
+.wr-item.good{border-left:2px solid var(--grn);padding-left:.4rem;margin-left:.1rem}
+.wr-item.warn{border-left:2px solid var(--red);padding-left:.4rem;margin-left:.1rem}
+.wr-item.tip{border-left:2px solid var(--gold);padding-left:.4rem;margin-left:.1rem}
+.ph-tap{cursor:pointer}.ph-tap:active{opacity:.7}
+.rc-item{display:flex;align-items:center;gap:.3rem;padding:.25rem 0;font-size:.55rem;border-bottom:1px solid rgba(255,255,255,.03)}
+.rc-text{flex:1;color:var(--t2)}.rc-int{font-size:.45rem;color:var(--t3)}.rc-del{color:var(--t3);cursor:pointer;font-size:.5rem}
+
 @keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(196,160,89,.3)}50%{box-shadow:0 0 22px rgba(196,160,89,.6)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
 </style>
@@ -207,6 +219,9 @@ body{min-height:100dvh}
   <div class="sec">Activity Log</div>
   <div id="actLog"></div>
 
+  <div class="sec">Weekly Review</div>
+  <div id="weeklyReview"></div>
+
   <div class="sec">Journey</div>
   <div class="phase-ring" id="phaseRing"></div>
 
@@ -227,7 +242,7 @@ body{min-height:100dvh}
 </div>
 
 <script>
-const SONGS=[
+const DEF_SONGS=[
   {char:'起',title:'再起',status:'released',date:'2026-02-11'},
   {char:'承',title:'継承',status:'in_progress',date:'2026-03-13'},
   {char:'転',title:null,status:'planned',date:null},
@@ -235,16 +250,18 @@ const SONGS=[
 ];
 const STAGES=['作曲','アレンジ','MIX','ボーカル','MV','リリース'];
 const CATS={song:'🎵作曲',mix:'🎛️MIX',mv:'🎬MV',vocal:'🎤ボーカル',sns:'📱SNS',release:'🚀リリース',learn:'📖学習',jbg:'🎓JBG',work:'💼コンサル',life:'🏠生活'};
+const DEF_GOALS={weeklyHours:5,yearSongs:10,subTarget:1000,playTarget:50000,revenueTarget:500000};
 const $=s=>document.querySelector(s);
 const START=new Date('2026-02-11'),today=new Date();today.setHours(0,0,0,0);
 const todayStr=today.toISOString().slice(0,10);
 const dayN=Math.floor((today-START)/864e5);
+const dayOfWeek=today.getDay();
 let curTab='week';
 
 // ── DB ──
 const DB_KEY='draem_db';
 const DB_BACKUP_KEY='draem_db_backup';
-function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,songs:7,revenue:0},songStage:0,timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',ver:0}}
+function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,songs:7,revenue:0},songStage:0,timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',songs:null,goals:null,recurring:[],ver:0}}
 function loadDB(){
   try{
     const raw=localStorage.getItem(DB_KEY);
@@ -293,6 +310,32 @@ let DB=loadDB();
 if(!DB.mission)DB.mission='2029年、音楽で生きる。\nそのために今日も1歩。';
 if(DB.songStage===undefined)DB.songStage=0;
 if(!DB.timerTotal)DB.timerTotal=0;
+if(!DB.songs)DB.songs=JSON.parse(JSON.stringify(DEF_SONGS));
+if(!DB.goals)DB.goals={...DEF_GOALS};
+if(!DB.recurring)DB.recurring=[];
+function SONGS(){return DB.songs||DEF_SONGS;}
+
+// ── Recurring Task Engine ──
+function processRecurring(){
+  const rc=DB.recurring||[];
+  let created=false;
+  rc.forEach(r=>{
+    if(!r.text||!r.interval)return;
+    const last=r.lastCreated||'';
+    const shouldCreate=(r.interval==='daily'&&last<todayStr)||(r.interval==='weekly'&&(!last||Math.floor((today-new Date(last))/864e5)>=7));
+    if(shouldCreate){
+      const existing=DB.tasks.find(t=>t.text===r.text&&!t.done&&t.created===todayStr);
+      if(!existing){
+        const due=r.interval==='weekly'?new Date(today.getTime()+7*864e5).toISOString().slice(0,10):todayStr;
+        DB.tasks.push({id:Date.now()+Math.random(),text:r.text,cat:r.cat||'',due:due,done:false,created:todayStr,doneDate:'',recurring:true});
+        r.lastCreated=todayStr;
+        created=true;
+      }
+    }
+  });
+  if(created)save();
+}
+processRecurring();
 
 // ── Gist Sync (robust) ──
 const GK='draem_gist';
@@ -332,11 +375,14 @@ function mergeDB(remote){
     if((remote.kpi?.[k]||0)>(local.kpi?.[k]||0)){local.kpi[k]=remote.kpi[k];changed=true;}
   });
 
-  // Song stage, mission: take from whichever is newer
+  // Song stage, mission, songs, goals, recurring: take from whichever is newer
   if((remote.updated||'')>(local.updated||'')){
     if(remote.songStage!==undefined&&remote.songStage!==local.songStage){local.songStage=remote.songStage;changed=true;}
     if(remote.mission&&remote.mission!==local.mission){local.mission=remote.mission;changed=true;}
     if(remote.timerCat&&remote.timerCat!==local.timerCat){local.timerCat=remote.timerCat;changed=true;}
+    if(remote.songs&&JSON.stringify(remote.songs)!==JSON.stringify(local.songs)){local.songs=remote.songs;changed=true;}
+    if(remote.goals&&JSON.stringify(remote.goals)!==JSON.stringify(local.goals)){local.goals=remote.goals;changed=true;}
+    if(remote.recurring&&JSON.stringify(remote.recurring)!==JSON.stringify(local.recurring)){local.recurring=remote.recurring;changed=true;}
   }
 
   return changed;
@@ -462,7 +508,7 @@ function setTimerCat(cat){
 function renderTimer(){
   const running=timerRunning();
   const el=timerElapsed(),wt=weekTotal();
-  const goalH=5;const pct=Math.min(100,wt/3600/goalH*100);
+  const goalH=(DB.goals||DEF_GOALS).weeklyHours;const pct=Math.min(100,wt/3600/goalH*100);
   const sessionTime=running?el:0;
   const bc=weekByCat();
   const maxSec=Math.max(1,...Object.values(bc));
@@ -544,40 +590,110 @@ function renderLog(){
   if(ab)ab.addEventListener('click',()=>openModal('log'));
 }
 
+// ── Weekly Review Engine ──
+function renderWeeklyReview(){
+  const S=SONGS(),G=DB.goals||DEF_GOALS;
+  const thisW=weekByCat(),prevW=logsByCat(prevWeekLogs());
+  const thisTotal=Object.values(thisW).reduce((a,b)=>a+b,0);
+  const prevTotal=Object.values(prevW).reduce((a,b)=>a+b,0);
+  const goalSec=G.weeklyHours*3600;
+  const released=S.filter(s=>s.status==='released').length;
+  const cur=S.find(s=>s.status==='in_progress');
+  const weeksElapsed=Math.max(1,Math.ceil(dayN/7));
+  const expectedSongs=G.yearSongs/52*weeksElapsed;
+  const doneTasks=DB.tasks.filter(t=>t.done&&t.doneDate>=new Date(new Date(today).setDate(today.getDate()-today.getDay())).toISOString().slice(0,10)).length;
+  const musicCats=['🎵作曲','🎛️MIX','🎬MV','🎤ボーカル','🚀リリース'];
+  const musicTime=Object.entries(thisW).filter(([c])=>musicCats.some(mc=>c.includes(mc))).reduce((s,[,v])=>s+v,0);
+
+  let items=[];
+
+  // Time achievement
+  if(thisTotal>=goalSec)items.push({c:'good',t:`<b>${fmtTime(thisTotal)}</b> / ${G.weeklyHours}h 目標達成 ✓`});
+  else{const remain=goalSec-thisTotal;const daysLeft=7-dayOfWeek;items.push({c:'warn',t:`今週 <b>${fmtTime(thisTotal)}</b> / ${G.weeklyHours}h — 残り${daysLeft}日で <b>${fmtTime(remain)}</b> 必要`});}
+
+  // vs last week
+  if(prevTotal>0){const diff=Math.round((thisTotal-prevTotal)/prevTotal*100);items.push({c:diff>=0?'good':'warn',t:`先週比 <b>${diff>=0?'+':''}${diff}%</b> (${fmtTime(prevTotal)} → ${fmtTime(thisTotal)})`});}
+
+  // Music ratio
+  if(thisTotal>1800){const pct=Math.round(musicTime/thisTotal*100);items.push({c:pct>=50?'good':'warn',t:`音楽制作の比率: <b>${pct}%</b> ${pct<50?'— もっと音楽に時間を':'— Good balance'}`});}
+
+  // Pace
+  if(released<Math.floor(expectedSongs))items.push({c:'warn',t:`ペース遅れ: <b>${released}曲</b> / 期待 ${Math.round(expectedSongs*10)/10}曲 — 制作加速が必要`});
+  else items.push({c:'good',t:`ペース順調: <b>${released}曲</b> リリース済`});
+
+  // Tasks completed
+  items.push({c:doneTasks>=3?'good':'tip',t:`今週 <b>${doneTasks}タスク</b> 完了${doneTasks<3?' — タスクを小さく分割して達成感を':''}`});
+
+  // Category balance tip
+  const topCat=Object.entries(thisW).sort((a,b)=>b[1]-a[1])[0];
+  const zeroCats=musicCats.filter(mc=>!Object.keys(thisW).some(k=>k.includes(mc)));
+  if(zeroCats.length&&thisTotal>3600)items.push({c:'tip',t:`未着手カテゴリ: ${zeroCats.join(', ')} — ${cur?'「'+cur.title+'」の':''}次のステージに進める？`});
+
+  // Current song advice
+  if(cur){const stageIdx=DB.songStage||0;const nextDeadline=cur.date?Math.ceil((new Date(cur.date)-today)/864e5):null;if(nextDeadline!=null&&nextDeadline<=14)items.push({c:'tip',t:`「${cur.title}」リリースまで <b>${nextDeadline}日</b> — ${STAGES[stageIdx]}を今週中に完了させよう`});}
+
+  $('#weeklyReview').innerHTML=`<div class="wr"><div class="wr-head">📊 Week ${Math.ceil(dayN/7)} — ${todayStr.slice(5)} 時点</div>${items.map(i=>`<div class="wr-item ${i.c}">${i.t}</div>`).join('')}</div>`;
+}
+
 function recordDay(){if(!DB.days.includes(todayStr))DB.days.push(todayStr);}
 function streak(){const d=new Set(DB.days);let s=0,dt=new Date(today);while(true){const k=dt.toISOString().slice(0,10);if(d.has(k)){s++;dt.setDate(dt.getDate()-1);}else if(s===0){dt.setDate(dt.getDate()-1);}else break;}return s;}
 function days30(){const c=new Date(today);c.setDate(c.getDate()-30);return DB.days.filter(x=>new Date(x)>=c).length;}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
+// ── Intelligent Focus Engine ──
+function calcFocus(){
+  const S=SONGS(),G=DB.goals||DEF_GOALS;
+  const cur=S.find(s=>s.status==='in_progress');
+  const stage=STAGES[DB.songStage||0];
+  const overdue=DB.tasks.filter(x=>!x.done&&x.due&&x.due<=todayStr).sort((a,b)=>a.due<b.due?-1:1);
+  const urgent3=DB.tasks.filter(x=>!x.done&&x.due&&!overdue.includes(x)).filter(x=>{const d=Math.ceil((new Date(x.due)-today)/864e5);return d<=3;}).sort((a,b)=>a.due<b.due?-1:1);
+  const wt=weekTotal(),goalSec=G.weeklyHours*3600;
+  const bc=weekByCat();
+  const released=S.filter(s=>s.status==='released').length;
+  const weeksElapsed=Math.max(1,Math.ceil(dayN/7));
+  const expectedSongs=G.yearSongs/52*weeksElapsed;
+  const behindPace=released<Math.floor(expectedSongs);
+  const sk=streak();
+  const musicCats=['🎵作曲','🎛️MIX','🎬MV','🎤ボーカル','🚀リリース'];
+  const musicTime=Object.entries(bc).filter(([c])=>musicCats.some(mc=>c.includes(mc))).reduce((s,[,v])=>s+v,0);
+  const nonMusicTime=wt-musicTime;
+
+  // Priority decision tree
+  if(overdue.length){return{text:overdue[0].text,sub:`⚠️ ${overdue.length}件の期限超過タスク — 最優先`,color:'red'};}
+  if(urgent3.length){return{text:urgent3[0].text,sub:`⚡ あと${Math.ceil((new Date(urgent3[0].due)-today)/864e5)}日 — 早めに対応`,color:'warn'};}
+  if(behindPace&&cur){return{text:`「${cur.title}」を加速 — ${stage}`,sub:`📉 ペース遅れ: ${released}曲 / 期待${Math.round(expectedSongs*10)/10}曲。制作を優先`,color:'warn'};}
+  if(wt<goalSec*0.3&&dayOfWeek>=4){return{text:'今週の作業時間が足りない',sub:`⏱ ${fmtTime(wt)} / ${G.weeklyHours}h — 残り${7-dayOfWeek}日で${fmtTime(goalSec-wt)}必要`,color:'warn'};}
+  if(nonMusicTime>musicTime*2&&wt>3600){return{text:'音楽以外に時間を使いすぎ',sub:`🎵 音楽: ${fmtTime(musicTime)} vs その他: ${fmtTime(nonMusicTime)} — バランスを見直そう`,color:'warn'};}
+  if(sk===0){return{text:'今日の活動を始めよう',sub:'🔥 ストリークが途切れている — 小さくてもいいから1つ',color:'gold'};}
+  if(cur){return{text:`「${cur.title}」${stage}`,sub:`${STAGES.indexOf(stage)+1}/${STAGES.length} ステージ${sk>0?' · 🔥'+sk+'日連続':''}`,color:'gold'};}
+  return{text:'新しい曲を始めよう',sub:`${released}曲リリース済 — 次の一歩を`,color:'gold'};
+}
+
 // ── Render ──
 function render(){
-  // Focus: what to do tonight
-  const cur=SONGS.find(s=>s.status==='in_progress');
-  const stage=STAGES[DB.songStage||0];
-  const todoCount=DB.tasks.filter(x=>!x.done).length;
-  const urgent=DB.tasks.filter(x=>!x.done&&x.due).sort((a,b)=>a.due<b.due?-1:1)[0];
-  let focusText='',focusSub='';
-  if(urgent&&urgent.due<=todayStr){focusText=urgent.text;focusSub='⚠️ 期限超過 — 最優先で対応';}
-  else if(cur){focusText=`「${cur.title}」${stage}`;focusSub=`${STAGES.indexOf(stage)+1}/${STAGES.length} ステージ${urgent?' · 次の〆切: '+urgent.text:''}`;}
-  else{focusText=todoCount>0?'タスクを1つ片付けよう':'新しい曲を始めよう';focusSub='';}
-  $('#focus').innerHTML=`<div class="focus-label">Tonight's Focus</div><div class="focus-text">${esc(focusText)}</div>${focusSub?'<div class="focus-sub">'+focusSub+'</div>':''}`;
+  const focus=calcFocus();
+  const fcls=focus.color==='red'?'border-color:var(--red)':focus.color==='warn'?'border-color:rgba(212,168,58,.4)':'';
+  $('#focus').innerHTML=`<div class="focus-label">Tonight's Focus</div><div class="focus-text">${esc(focus.text)}</div>${focus.sub?'<div class="focus-sub">'+focus.sub+'</div>':''}`;
+  if(fcls)$('#focus').style.cssText=fcls;else $('#focus').style.cssText='';
 
   renderTimer();
 
   // Song stage progress
+  const S=SONGS(),G=DB.goals||DEF_GOALS;
+  const cur=S.find(s=>s.status==='in_progress');
   if(cur){
     let sh=`<div class="song-title"><span>${cur.char}</span>「${cur.title}」</div><div class="song-stages">`;
     STAGES.forEach((s,i)=>{const cls=i<DB.songStage?'done':i===DB.songStage?'active':'';sh+=`<div class="stage ${cls}" data-si="${i}">${s}</div>`;});
     sh+='</div>';
     $('#songProg').innerHTML=sh;
     $('#songProg').querySelectorAll('.stage').forEach(el=>el.addEventListener('click',()=>{DB.songStage=+el.dataset.si;save();render();}));
-  }
+  }else{$('#songProg').innerHTML='';}
 
   // Pace: on track?
   const weeksElapsed=Math.max(1,Math.ceil(dayN/7));
-  const songsTarget=10,monthsTarget=12;
+  const songsTarget=G.yearSongs;
   const expectedSongs=Math.round(songsTarget/52*weeksElapsed*10)/10;
-  const released=SONGS.filter(s=>s.status==='released').length;
+  const released=S.filter(s=>s.status==='released').length;
   const onTrack=released>=Math.floor(expectedSongs);
   const nextRelease=cur?.date?Math.ceil((new Date(cur.date)-today)/864e5):null;
   $('#pace').innerHTML=`
@@ -612,14 +728,19 @@ function render(){
   // Activity Log
   renderLog();
 
+  // Weekly Review
+  renderWeeklyReview();
+
   // KPI
-  const KD=[{k:'subscribers',l:'Subscribers',t:1000,f:v=>v.toLocaleString()},{k:'total_plays',l:'Plays',t:50000,f:v=>v.toLocaleString()},{k:'songs',l:'Songs',t:10,f:v=>v+''},{k:'revenue',l:'Revenue',t:500000,f:v=>'¥'+v.toLocaleString()}];
+  const KD=[{k:'subscribers',l:'Subscribers',t:G.subTarget,f:v=>v.toLocaleString()},{k:'total_plays',l:'Plays',t:G.playTarget,f:v=>v.toLocaleString()},{k:'songs',l:'Songs',t:G.yearSongs,f:v=>v+''},{k:'revenue',l:'Revenue',t:G.revenueTarget,f:v=>'¥'+v.toLocaleString()}];
   $('#kpiGrid').innerHTML=KD.map(d=>{const v=DB.kpi[d.k]||0;const p=Math.min(100,d.t>0?v/d.t*100:0);return`<div class="kpi"><div class="kpi-l">${d.l}</div><div class="kpi-v">${d.f(v)}</div><div class="kpi-t">/ ${d.f(d.t)}</div><div class="kpi-bar"><div class="kpi-fill" style="width:${p}%"></div></div></div>`;}).join('');
   $('#kpiGrid').querySelectorAll('.kpi').forEach(el=>el.addEventListener('click',()=>openModal('kpi')));
 
-  // Phase
-  let ph='';SONGS.forEach((s,i)=>{if(i>0)ph+=`<div class="ph-conn ${s.status==='released'||SONGS[i-1].status==='released'?'done':''}"></div>`;ph+=`<div class="ph"><div class="ph-c ${s.status}">${s.char}</div><div class="ph-t">${s.title||'—'}</div></div>`;});
+  // Phase (dynamic songs)
+  let ph='';S.forEach((s,i)=>{if(i>0)ph+=`<div class="ph-conn ${s.status==='released'||S[i-1].status==='released'?'done':''}"></div>`;ph+=`<div class="ph ph-tap" data-pi="${i}"><div class="ph-c ${s.status}">${s.char}</div><div class="ph-t">${s.title||'—'}</div></div>`;});
+  ph+='<div class="ph ph-tap" data-pi="add"><div class="ph-c" style="border-style:dashed;font-size:.8rem">＋</div><div class="ph-t">追加</div></div>';
   $('#phaseRing').innerHTML=ph;
+  $('#phaseRing').querySelectorAll('.ph-tap').forEach(el=>el.addEventListener('click',()=>{const pi=el.dataset.pi;if(pi==='add')openModal('songAdd');else openModal('songEdit',+pi);}));
 
   // Mission
   const lines=(DB.mission||'').split('\n');
@@ -629,7 +750,7 @@ function render(){
 }
 
 // ── Modals ──
-function openModal(type){
+function openModal(type,extra){
   if(type==='kpi'){
     const KD=[{k:'subscribers',l:'Subscribers'},{k:'total_plays',l:'Total Plays'},{k:'songs',l:'Songs'},{k:'revenue',l:'Revenue (¥)'}];
     $('#mTitle').textContent='KPI 更新';
@@ -639,6 +760,54 @@ function openModal(type){
     $('#mTitle').textContent='Mission';
     $('#mFields').innerHTML=`<div class="mf"><label>あなたのミッション</label><textarea id="missionText" rows="3">${esc(DB.mission||'')}</textarea></div><div style="font-size:.5rem;color:var(--t3)">1行目=メイン、2行目=サブ</div>`;
     $('#mSave').onclick=()=>{DB.mission=$('#missionText').value;save();render();$('#modalBg').classList.remove('show');};
+  }else if(type==='songEdit'){
+    const s=SONGS()[extra];
+    if(!s)return;
+    $('#mTitle').textContent=`曲を編集: ${s.char}`;
+    const stOpts=['planned','in_progress','released'].map(v=>`<option value="${v}" ${s.status===v?'selected':''}>${v==='planned'?'計画中':v==='in_progress'?'制作中':'リリース済'}</option>`).join('');
+    $('#mFields').innerHTML=`<div class="mf"><label>タイトル</label><input id="seTitle" value="${s.title||''}"></div><div class="mf"><label>記号</label><input id="seChar" value="${s.char||''}" maxlength="2"></div><div class="mf"><label>ステータス</label><select id="seStatus" style="width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.75rem;font-family:inherit">${stOpts}</select></div><div class="mf"><label>目標日</label><input type="date" id="seDate" value="${s.date||''}"></div>`;
+    $('#mSave').onclick=()=>{
+      DB.songs[extra].title=$('#seTitle').value||null;
+      DB.songs[extra].char=$('#seChar').value||'?';
+      const newStatus=$('#seStatus').value;
+      if(newStatus==='in_progress'&&DB.songs[extra].status!=='in_progress')DB.songStage=0;
+      DB.songs[extra].status=newStatus;
+      DB.songs[extra].date=$('#seDate').value||null;
+      save();render();$('#modalBg').classList.remove('show');
+    };
+  }else if(type==='songAdd'){
+    $('#mTitle').textContent='新しい曲を追加';
+    const num=SONGS().length+1;
+    $('#mFields').innerHTML=`<div class="mf"><label>記号 (1文字)</label><input id="saChar" value="${num}" maxlength="2"></div><div class="mf"><label>タイトル (未定なら空)</label><input id="saTitle"></div><div class="mf"><label>目標日</label><input type="date" id="saDate"></div>`;
+    $('#mSave').onclick=()=>{
+      DB.songs.push({char:$('#saChar').value||'?',title:$('#saTitle').value||null,status:'planned',date:$('#saDate').value||null});
+      save();render();$('#modalBg').classList.remove('show');
+    };
+  }else if(type==='goals'){
+    const G=DB.goals||DEF_GOALS;
+    $('#mTitle').textContent='目標設定';
+    $('#mFields').innerHTML=`
+      <div class="mf"><label>週間作業目標 (時間)</label><input type="number" id="gWH" value="${G.weeklyHours}" min="1" max="40"></div>
+      <div class="mf"><label>年間リリース曲数</label><input type="number" id="gYS" value="${G.yearSongs}" min="1" max="50"></div>
+      <div class="mf"><label>登録者数 目標</label><input type="number" id="gSub" value="${G.subTarget}"></div>
+      <div class="mf"><label>再生数 目標</label><input type="number" id="gPlay" value="${G.playTarget}"></div>
+      <div class="mf"><label>収益 目標 (¥)</label><input type="number" id="gRev" value="${G.revenueTarget}"></div>`;
+    $('#mSave').onclick=()=>{
+      DB.goals={weeklyHours:+$('#gWH').value||5,yearSongs:+$('#gYS').value||10,subTarget:+$('#gSub').value||1000,playTarget:+$('#gPlay').value||50000,revenueTarget:+$('#gRev').value||500000};
+      save();render();$('#modalBg').classList.remove('show');
+    };
+  }else if(type==='recurring'){
+    const rc=DB.recurring||[];
+    const catOpts=TCATS.map(c=>`<option value="${c}">${c}</option>`).join('');
+    let listHtml=rc.length?rc.map((r,i)=>`<div class="rc-item"><div class="rc-text">${r.text}</div><div class="rc-int">${r.interval==='daily'?'毎日':'毎週'}</div><div class="rc-del" data-ri="${i}">✕</div></div>`).join(''):'<div style="font-size:.5rem;color:var(--t3);padding:.3rem 0">まだ設定なし</div>';
+    $('#mTitle').textContent='リピートタスク';
+    $('#mFields').innerHTML=`${listHtml}<div style="border-top:1px solid rgba(255,255,255,.06);margin:.4rem 0;padding-top:.4rem"><div class="mf"><label>タスク名</label><input id="rcText" placeholder="例: ボーカル練習"></div><div style="display:flex;gap:.4rem"><div class="mf" style="flex:1"><label>カテゴリ</label><select id="rcCat" style="width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.7rem;font-family:inherit">${catOpts}</select></div><div class="mf" style="flex:1"><label>頻度</label><select id="rcInt" style="width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.7rem;font-family:inherit"><option value="daily">毎日</option><option value="weekly">毎週</option></select></div></div></div>`;
+    $('#mSave').onclick=()=>{
+      const text=$('#rcText').value.trim();
+      if(text){DB.recurring.push({text,cat:$('#rcCat').value,interval:$('#rcInt').value,lastCreated:''});processRecurring();}
+      save();render();$('#modalBg').classList.remove('show');
+    };
+    setTimeout(()=>{$('#mFields').querySelectorAll('.rc-del').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();DB.recurring.splice(+el.dataset.ri,1);save();openModal('recurring');}));},50);
   }else if(type==='log'){
     const catOpts=TCATS.map(c=>`<option value="${c}" ${c===DB.timerCat?'selected':''}>${c}</option>`).join('');
     $('#mTitle').textContent='作業時間を手動追加';
@@ -675,6 +844,11 @@ function openModal(type){
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">YOUTUBE AUTO KPI</div>
       <div class="mf"><label>API Key</label><input id="yK" type="password" value="${y.apiKey||''}"></div>
       <div class="mf"><label>Channel ID</label><input id="yC" value="${y.channelId||''}"></div>
+      <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">TOOLS</div>
+      <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
+        <button id="btnGoals" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🎯 目標設定</button>
+        <button id="btnRecurring" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🔁 リピートタスク</button>
+      </div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">BACKUP / RESTORE</div>
       <div style="font-size:.48rem;color:var(--t3);margin-bottom:.35rem">現在: タスク ${taskCount}件 / ログ ${logCount}件</div>
       <div style="display:flex;gap:.4rem">
@@ -685,6 +859,8 @@ function openModal(type){
     setTimeout(()=>{
       const ex=$('#btnExport');if(ex)ex.addEventListener('click',exportData);
       const fi=$('#fileImport');if(fi)fi.addEventListener('change',e=>{if(e.target.files[0])importData(e.target.files[0]);});
+      const bg=$('#btnGoals');if(bg)bg.addEventListener('click',()=>{$('#modalBg').classList.remove('show');setTimeout(()=>openModal('goals'),100);});
+      const br=$('#btnRecurring');if(br)br.addEventListener('click',()=>{$('#modalBg').classList.remove('show');setTimeout(()=>openModal('recurring'),100);});
     },50);
   }
   $('#modalBg').classList.add('show');
