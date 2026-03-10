@@ -155,6 +155,8 @@ body{min-height:100dvh}
 .al-s-time{color:var(--t2)}
 .al-toggle{font-size:.45rem;color:var(--t3);cursor:pointer;text-align:center;padding:.25rem}
 .al-toggle:active{color:var(--t2)}
+.al-add-btn{font-size:.48rem;color:var(--gold);cursor:pointer;padding:.15rem .35rem;border:1px solid rgba(196,160,89,.3);border-radius:4px;white-space:nowrap}
+.al-add-btn:active{background:var(--gdim)}
 
 @keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(196,160,89,.3)}50%{box-shadow:0 0 22px rgba(196,160,89,.6)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
@@ -460,7 +462,7 @@ let showAllSessions=false;
 
 function renderLog(){
   const logs=DB.timerLog||[];
-  if(!logs.length){$('#actLog').innerHTML='<div style="text-align:center;padding:.5rem;color:var(--t3);font-size:.6rem">タイマーで作業を記録すると、ここに分析が表示されます</div>';return;}
+  if(!logs.length){$('#actLog').innerHTML='<div style="text-align:center;padding:.5rem;color:var(--t3);font-size:.6rem">タイマーで作業を記録すると、ここに分析が表示されます</div><div class="al-add-btn" id="alAddBtn" style="text-align:center;margin:.3rem 0">＋ 手動追加</div>';const ab=$('#alAddBtn');if(ab)ab.addEventListener('click',()=>openModal('log'));return;}
 
   const thisW=weekByCat();
   const prevW=logsByCat(prevWeekLogs());
@@ -485,15 +487,17 @@ function renderLog(){
   let sessions=shown.map(l=>{
     const d=new Date(l.ts||Date.now());
     const hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-    return `<div class="al-s"><div class="al-s-date">${l.date.slice(5)} ${hm}</div><div class="al-s-cat">${l.cat}</div><div class="al-s-time">${fmtTime(l.sec)}</div></div>`;
+    return `<div class="al-s"><div class="al-s-date">${l.date.slice(5)} ${l.manual?'手動':hm}</div><div class="al-s-cat">${l.cat}</div><div class="al-s-time">${fmtTime(l.sec)}</div></div>`;
   }).join('');
 
   const toggleBtn=recent.length>5?`<div class="al-toggle" id="alToggle">${showAllSessions?'▲ 閉じる':'▼ もっと見る ('+recent.length+'件)'}</div>`:'';
 
-  $('#actLog').innerHTML=`<div class="al-week"><div class="al-label">今週 ${fmtTime(thisTotal)}</div><div class="al-cmp ${cmpCls}">${cmpText}</div></div><div class="al-bars">${bars}</div><div style="font-size:.42rem;color:var(--t3);display:flex;gap:.6rem;margin-bottom:.3rem"><span>■ 今週</span><span style="opacity:.5">■ 先週</span></div><div class="al-sessions">${sessions}</div>${toggleBtn}`;
+  $('#actLog').innerHTML=`<div class="al-week"><div class="al-label">今週 ${fmtTime(thisTotal)}</div><div style="display:flex;gap:.4rem;align-items:center"><div class="al-cmp ${cmpCls}">${cmpText}</div><div class="al-add-btn" id="alAddBtn">＋ 手動追加</div></div></div><div class="al-bars">${bars}</div><div style="font-size:.42rem;color:var(--t3);display:flex;gap:.6rem;margin-bottom:.3rem"><span>■ 今週</span><span style="opacity:.5">■ 先週</span></div><div class="al-sessions">${sessions}</div>${toggleBtn}`;
 
   const tb=$('#alToggle');
   if(tb)tb.addEventListener('click',()=>{showAllSessions=!showAllSessions;renderLog();});
+  const ab=$('#alAddBtn');
+  if(ab)ab.addEventListener('click',()=>openModal('log'));
 }
 
 function recordDay(){if(!DB.days.includes(todayStr))DB.days.push(todayStr);}
@@ -591,6 +595,30 @@ function openModal(type){
     $('#mTitle').textContent='Mission';
     $('#mFields').innerHTML=`<div class="mf"><label>あなたのミッション</label><textarea id="missionText" rows="3">${esc(DB.mission||'')}</textarea></div><div style="font-size:.5rem;color:var(--t3)">1行目=メイン、2行目=サブ</div>`;
     $('#mSave').onclick=()=>{DB.mission=$('#missionText').value;save();render();$('#modalBg').classList.remove('show');};
+  }else if(type==='log'){
+    const catOpts=TCATS.map(c=>`<option value="${c}" ${c===DB.timerCat?'selected':''}>${c}</option>`).join('');
+    $('#mTitle').textContent='作業時間を手動追加';
+    $('#mFields').innerHTML=`
+      <div class="mf"><label>カテゴリ</label><select id="lCat" style="width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.75rem;font-family:inherit;outline:none">${catOpts}</select></div>
+      <div class="mf"><label>日付</label><input type="date" id="lDate" value="${todayStr}"></div>
+      <div style="display:flex;gap:.4rem">
+        <div class="mf" style="flex:1"><label>時間 (h)</label><input type="number" id="lH" min="0" max="12" value="0" placeholder="0"></div>
+        <div class="mf" style="flex:1"><label>分 (m)</label><input type="number" id="lM" min="0" max="59" value="30" placeholder="30"></div>
+      </div>
+      <div style="font-size:.48rem;color:var(--t3);margin-top:.2rem">例: 1時間30分作曲していた → h:1 m:30</div>`;
+    $('#mSave').onclick=()=>{
+      const cat=$('#lCat').value;
+      const date=$('#lDate').value||todayStr;
+      const h=+(($('#lH').value)||0);
+      const m=+(($('#lM').value)||0);
+      const sec=h*3600+m*60;
+      if(sec<60){alert('1分以上入力してください');return;}
+      const ts=new Date(date).getTime();
+      DB.timerLog.push({date,cat,sec,ts,manual:true});
+      if(!DB.days.includes(date))DB.days.push(date);
+      save();render();
+      $('#modalBg').classList.remove('show');
+    };
   }else if(type==='sync'){
     const c=gc(),y=ytConf();
     $('#mTitle').textContent='設定';
