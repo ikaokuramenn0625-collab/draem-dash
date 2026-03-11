@@ -22,6 +22,8 @@ body{min-height:100dvh}
 .zoom{display:flex;gap:2px;align-items:center}
 .zoom-btn{width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,.1);background:var(--s1);color:var(--t3);font-size:.55rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:600}
 .zoom-btn:active{background:var(--s2);color:var(--t1)}
+.refresh-btn{width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,.1);background:var(--s1);color:var(--t3);font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.refresh-btn:active{background:var(--s2);color:var(--t1)}
 
 /* Dream Countdown */
 .dream-bar{text-align:center;margin-bottom:.8rem;padding:.4rem 0}
@@ -214,7 +216,8 @@ body{min-height:100dvh}
 <div class="w">
   <div class="hdr">
     <div class="logo">dræm.<span class="sync-dot" id="syncDot"></span></div>
-    <div style="display:flex;align-items:baseline;gap:.5rem">
+    <div style="display:flex;align-items:baseline;gap:.4rem">
+      <button class="refresh-btn" id="btnRefresh">⟳</button>
       <div class="zoom"><button class="zoom-btn" id="zoomOut">A-</button><button class="zoom-btn" id="zoomIn">A+</button></div>
       <div class="day-b" id="dayB"></div>
     </div>
@@ -1126,6 +1129,7 @@ function applyZoom(){document.documentElement.style.setProperty('--fs',zoomLv+'p
 applyZoom();
 $('#zoomIn').addEventListener('click',()=>{if(zoomLv<22){zoomLv+=1;applyZoom();}});
 $('#zoomOut').addEventListener('click',()=>{if(zoomLv>12){zoomLv-=1;applyZoom();}});
+$('#btnRefresh').addEventListener('click',()=>{syncPull();fetchYT();});
 
 // Init
 const dn=['日','月','火','水','木','金','土'];
