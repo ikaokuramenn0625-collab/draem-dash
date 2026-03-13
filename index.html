@@ -271,6 +271,10 @@ body{min-height:100dvh}
 
   <div class="sec" style="display:flex;justify-content:space-between;align-items:center">Weekly Review <button id="btnWeeklyCopy" style="font-size:.45rem;padding:.15rem .4rem;border-radius:4px;border:1px solid rgba(255,255,255,.15);background:var(--s1);color:var(--t2);cursor:pointer;font-family:inherit">📋 Claudeに共有</button></div>
   <div id="weeklyReview"></div>
+  <div id="suggestionPanel"></div>
+
+  <div class="sec">Monthly</div>
+  <div id="monthlyReview"></div>
 
   <div class="sec">Journey</div>
   <div class="phase-ring" id="phaseRing"></div>
@@ -950,6 +954,49 @@ function streak(){const d=new Set(DB.days);let s=0,dt=new Date(today);while(true
 function days30(){const c=new Date(today);c.setDate(c.getDate()-30);return DB.days.filter(x=>new Date(x)>=c).length;}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
+// ── Suggestion Panel ──
+function renderSuggestions(){
+  const ws=getWeekStart();
+  const sugs=DB.suggestionLog.filter(s=>s.weekStart===ws);
+  if(!sugs.length){$('#suggestionPanel').innerHTML='';return;}
+  const items=sugs.map(s=>`<div class="wr-item tip" style="display:flex;justify-content:space-between;align-items:flex-start;gap:.3rem"><span>💡 ${s.text}</span></div>`).join('');
+  $('#suggestionPanel').innerHTML=`<div class="wr"><div class="wr-head">🎯 今週のアクション提案</div>${items}</div>`;
+}
+
+// ── Monthly Review ──
+function renderMonthlyReview(){
+  const el=$('#monthlyReview');
+  if(!el)return;
+  const G=DB.goals||DEF_GOALS;
+  const now=new Date(today);
+  const monthStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+  const prevMonthStart=new Date(now.getFullYear(),now.getMonth()-1,1).toISOString().slice(0,10);
+  const logs=DB.timerLog||[];
+  const thisMonthLogs=logs.filter(l=>l.date>=monthStart);
+  const prevMonthLogs=logs.filter(l=>l.date>=prevMonthStart&&l.date<monthStart);
+  const thisH=thisMonthLogs.reduce((s,l)=>s+l.sec,0)/3600;
+  const prevH=prevMonthLogs.reduce((s,l)=>s+l.sec,0)/3600;
+  const diff=prevH>0?Math.round((thisH-prevH)/prevH*100):0;
+
+  // KPI growth (from kpiLog)
+  const kpiNow=DB.kpiLog.filter(e=>e.date>=monthStart).slice(-1)[0];
+  const kpiPrev=DB.kpiLog.filter(e=>e.date>=prevMonthStart&&e.date<monthStart).slice(-1)[0];
+  const subGrowth=kpiNow&&kpiPrev?kpiNow.subscribers-kpiPrev.subscribers:null;
+  const playGrowth=kpiNow&&kpiPrev?kpiNow.total_plays-kpiPrev.total_plays:null;
+
+  // Suggestion effectiveness this month
+  const monthSugs=DB.suggestionLog.filter(s=>s.weekStart>=monthStart&&s.effective!==null);
+  const effectivePct=monthSugs.length?Math.round(monthSugs.filter(s=>s.effective).length/monthSugs.length*100):null;
+
+  let items=[];
+  items.push({c:thisH>prevH?'good':'warn',t:`今月の作業: <b>${thisH.toFixed(1)}h</b>${prevH>0?' (先月比 '+(diff>=0?'+':'')+diff+'%)':''}`});
+  if(subGrowth!==null)items.push({c:subGrowth>0?'good':'warn',t:`登録者: ${subGrowth>=0?'+':''}${subGrowth}人 (今月)`});
+  if(playGrowth!==null)items.push({c:playGrowth>0?'good':'warn',t:`再生数: ${playGrowth>=0?'+':''}${playGrowth.toLocaleString()} (今月)`});
+  if(effectivePct!==null)items.push({c:effectivePct>=50?'good':'warn',t:`提案の効果率: <b>${effectivePct}%</b> (${monthSugs.length}件評価済)`});
+
+  el.innerHTML=`<div class="wr"><div class="wr-head">📅 月次サマリー — ${now.getMonth()+1}月</div>${items.map(i=>`<div class="wr-item ${i.c}">${i.t}</div>`).join('')}</div>`;
+}
+
 // ── Intelligent Focus Engine ──
 function calcFocus(){
   const S=SONGS(),G=DB.goals||DEF_GOALS;
@@ -1076,6 +1123,8 @@ function render(){
 
   // Weekly Review
   renderWeeklyReview();
+  renderSuggestions();
+  renderMonthlyReview();
 
   // KPI
   const KD=[
@@ -1084,9 +1133,21 @@ function render(){
     {k:'songs',l:'Songs',t:G.yearSongs,f:v=>v+'',p:null},
     {k:'revenue',l:'Revenue',t:G.revenueTarget,f:v=>'¥'+v.toLocaleString(),p:pred.rev},
   ];
+  const weeksLeft=Math.max(1,Math.floor(dreamDaysLeft/7));
   $('#kpiGrid').innerHTML=KD.map(d=>{
     const v=DB.kpi[d.k]||0;const p=Math.min(100,d.t>0?v/d.t*100:0);
-    const predHtml=d.p?`<div style="font-size:.45rem;color:${d.p.onTrack?'var(--gl)':'var(--red)'};margin-top:.1rem">${d.p.onTrack?'✓ On Track':'⚡ '+d.p.fmt+'後'}</div>`:'';
+    let predHtml='';
+    if(d.p){
+      if(d.p.days===0){
+        predHtml=`<div style="font-size:.45rem;color:var(--gl);margin-top:.1rem">✓ 達成済</div>`;
+      } else {
+        const needed=Math.max(0,d.t-v);
+        const weeklyNeeded=needed/weeksLeft;
+        const needStr=d.k==='revenue'?'¥'+Math.ceil(weeklyNeeded).toLocaleString()+'/週':Math.ceil(weeklyNeeded).toLocaleString()+'/週';
+        const color=d.p.onTrack?'var(--gl)':'var(--red)';
+        predHtml=`<div style="font-size:.45rem;color:${color};margin-top:.1rem">${d.p.onTrack?'✓ On Track —':'⚡ 要'} ${needStr}</div>`;
+      }
+    }
     return`<div class="kpi"><div class="kpi-l">${d.l}</div><div class="kpi-v">${d.f(v)}</div><div class="kpi-t">/ ${d.f(d.t)}</div><div class="kpi-bar"><div class="kpi-fill" style="width:${p}%"></div></div>${predHtml}</div>`;
   }).join('');
   $('#kpiGrid').querySelectorAll('.kpi').forEach(el=>el.addEventListener('click',()=>openModal('kpi')));
