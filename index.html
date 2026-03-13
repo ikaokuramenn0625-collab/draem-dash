@@ -269,7 +269,7 @@ body{min-height:100dvh}
   <div class="sec">Activity Log</div>
   <div id="actLog"></div>
 
-  <div class="sec">Weekly Review</div>
+  <div class="sec" style="display:flex;justify-content:space-between;align-items:center">Weekly Review <button id="btnWeeklyCopy" style="font-size:.45rem;padding:.15rem .4rem;border-radius:4px;border:1px solid rgba(255,255,255,.15);background:var(--s1);color:var(--t2);cursor:pointer;font-family:inherit">📋 Claudeに共有</button></div>
   <div id="weeklyReview"></div>
 
   <div class="sec">Journey</div>
@@ -1319,6 +1319,85 @@ evaluateSuggestions();
   if(wt>3600&&musicSec<wt*0.4)logSuggestion(`音楽制作の比率が低い。今週は制作時間を優先しよう`,'music_ratio',{});
   save();
 })();
+
+// ── Weekly Summary Generator ──
+function buildWeeklySummary(){
+  const G=DB.goals||DEF_GOALS;
+  const S=SONGS();
+  const wl=weekLogs();
+  const pw=prevWeekLogs();
+  const thisTotal=wl.reduce((s,l)=>s+l.sec,0);
+  const prevTotal=pw.reduce((s,l)=>s+l.sec,0);
+  const bc=weekByCat();
+  const released=S.filter(s=>s.status==='released').length;
+  const cur=S.find(s=>s.status==='in_progress');
+  const sk=streak();
+  const pred=calcPredictions();
+  const ws=getWeekStart();
+
+  // 先週の提案と結果
+  const prevWs=new Date(today);prevWs.setDate(today.getDate()-7);
+  const prevWsStr=prevWs.toISOString().slice(0,10);
+  const prevSugs=DB.suggestionLog.filter(s=>s.weekStart===prevWsStr);
+  const prevSugSummary=prevSugs.length
+    ?prevSugs.map(s=>`  - ${s.text} → ${s.effective===true?'✅効果あり':s.effective===false?'❌効果なし':'未評価'}`).join('\n')
+    : '  (なし)';
+
+  // カテゴリ別時間
+  const catBreakdown=Object.entries(bc).sort((a,b)=>b[1]-a[1]).map(([c,s])=>`  ${c}: ${fmtTime(s)}`).join('\n')||'  (記録なし)';
+
+  // 気分トレンド
+  const moods=['😤','😐','🙂','😊','🔥'];
+  const weekRefs=(DB.reflections||[]).filter(r=>r.date>=ws&&r.date<=todayStr);
+  const moodStr=weekRefs.length?weekRefs.map(r=>moods[r.mood||0]).join(' '):'(記録なし)';
+
+  const lines=[
+    `# dræm. 週次レビュー — ${todayStr} (Week ${Math.ceil(dayN/7)})`,
+    ``,
+    `## 今週の作業`,
+    `- 合計: ${fmtTime(thisTotal)} / 目標${G.weeklyHours}h`,
+    `- 先週比: ${prevTotal>0?(thisTotal>=prevTotal?'+':'')+Math.round((thisTotal-prevTotal)/Math.max(1,prevTotal)*100)+'%':'初週'}`,
+    `- ストリーク: ${sk}日連続`,
+    `- 気分: ${moodStr}`,
+    ``,
+    `## カテゴリ別`,
+    catBreakdown,
+    ``,
+    `## KPI`,
+    `- 登録者: ${(DB.kpi?.subscribers||0).toLocaleString()} / 目標${G.subTarget.toLocaleString()} (現ペース: ${pred.sub.fmt}後)`,
+    `- 再生数: ${(DB.kpi?.total_plays||0).toLocaleString()} / 目標${G.playTarget.toLocaleString()} (現ペース: ${pred.plays.fmt}後)`,
+    `- 収益: ¥${(DB.kpi?.revenue||0).toLocaleString()} / 目標¥${G.revenueTarget.toLocaleString()}`,
+    ``,
+    `## 楽曲進捗`,
+    `- リリース済: ${released}曲`,
+    cur?`- 制作中: 「${cur.title}」(${STAGES[DB.songStage||0]})`:'- 制作中: なし',
+    ``,
+    `## 先週の提案と結果`,
+    prevSugSummary,
+    ``,
+    `## 蓄積データサマリー`,
+    `- 累計作業時間: ${Math.floor((DB.timerLog||[]).reduce((s,l)=>s+l.sec,0)/3600)}h`,
+    `- 活動日数: ${DB.days?.length||0}日`,
+    `- 週次ログ: ${DB.weeklyLog?.length||0}週分`,
+    ``,
+    `---`,
+    `上記データをもとに：`,
+    `1. 今週の状況の分析`,
+    `2. 目標達成のボトルネック特定`,
+    `3. 来週の具体的アクション（1〜3個）`,
+    `をお願いします。`,
+  ];
+  return lines.join('\n');
+}
+
+$('#btnWeeklyCopy').addEventListener('click',()=>{
+  const text=buildWeeklySummary();
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=$('#btnWeeklyCopy');
+    btn.textContent='✅ コピーしました';
+    setTimeout(()=>{btn.textContent='📋 Claudeに共有';},2000);
+  });
+});
 
 render();
 syncPull();
