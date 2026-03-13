@@ -418,7 +418,68 @@ if(!DB.goals)DB.goals={...DEF_GOALS};
 if(!DB.recurring)DB.recurring=[];
 if(!DB.reflections)DB.reflections=[];
 if(!DB.bestStreak)DB.bestStreak=0;
+if(!DB.kpiLog)DB.kpiLog=[];           // [{date,subscribers,total_plays,revenue,songs}]
+if(!DB.weeklyLog)DB.weeklyLog=[];     // [{weekStart,totalSec,byCat,kpi}]
+if(!DB.suggestionLog)DB.suggestionLog=[]; // [{id,date,text,type,context,effective,evaluatedDate}]
 function SONGS(){return DB.songs||DEF_SONGS;}
+
+// ── Logging Engine ──
+function getWeekStart(){const d=new Date(today);d.setDate(d.getDate()-dayOfWeek);return d.toISOString().slice(0,10);}
+
+function snapshotIfNeeded(){
+  const ws=getWeekStart();
+  // KPI snapshot: 今日まだ記録してなければ
+  if(!DB.kpiLog.find(e=>e.date===todayStr)){
+    DB.kpiLog.push({date:todayStr,subscribers:DB.kpi.subscribers||0,total_plays:DB.kpi.total_plays||0,revenue:DB.kpi.revenue||0,songs:DB.kpi.songs||0});
+    // 90日超は削除（容量節約）
+    const cutoff=new Date(today);cutoff.setDate(today.getDate()-90);
+    const cutStr=cutoff.toISOString().slice(0,10);
+    DB.kpiLog=DB.kpiLog.filter(e=>e.date>=cutStr);
+  }
+  // Weekly snapshot: 今週分まだなければ
+  if(!DB.weeklyLog.find(e=>e.weekStart===ws)){
+    const wl=weekLogs();
+    const byCat={};wl.forEach(l=>{byCat[l.cat]=(byCat[l.cat]||0)+l.sec;});
+    DB.weeklyLog.push({weekStart:ws,totalSec:wl.reduce((s,l)=>s+l.sec,0),byCat,kpi:{...DB.kpi}});
+    // 52週超は削除
+    if(DB.weeklyLog.length>52)DB.weeklyLog=DB.weeklyLog.slice(-52);
+  }
+}
+
+function logSuggestion(text,type,context){
+  // 同じ週に同じ提案が既にあればスキップ
+  const ws=getWeekStart();
+  if(DB.suggestionLog.find(s=>s.weekStart===ws&&s.type===type))return;
+  DB.suggestionLog.push({
+    id:Date.now(),date:todayStr,weekStart:ws,text,type,
+    context:{kpi:{...DB.kpi},weeklyHours:weekTotal()/3600,...context},
+    effective:null,evaluatedDate:null,
+  });
+  if(DB.suggestionLog.length>200)DB.suggestionLog=DB.suggestionLog.slice(-200);
+}
+
+function evaluateSuggestions(){
+  const prevWs=new Date(today);prevWs.setDate(today.getDate()-7);
+  const prevWsStr=prevWs.toISOString().slice(0,10);
+  DB.suggestionLog.filter(s=>s.weekStart===prevWsStr&&s.effective===null).forEach(s=>{
+    const prevSnap=DB.weeklyLog.find(w=>w.weekStart===prevWsStr);
+    const curSnap=DB.weeklyLog.find(w=>w.weekStart===getWeekStart());
+    if(!prevSnap||!curSnap){s.effective=null;return;}
+    let effective=false;
+    if(s.type==='kpi_sub'){effective=(curSnap.kpi.subscribers||0)>(prevSnap.kpi.subscribers||0);}
+    else if(s.type==='kpi_play'){effective=(curSnap.kpi.total_plays||0)>(prevSnap.kpi.total_plays||0);}
+    else if(s.type==='work_hours'){effective=curSnap.totalSec>=(s.context?.goalSec||0);}
+    else if(s.type==='music_ratio'){
+      const mCats=['🎵作曲','🎛️MIX','🎬MV','🎤ボーカル','🚀リリース'];
+      const prevM=Object.entries(prevSnap.byCat||{}).filter(([c])=>mCats.some(mc=>c.includes(mc))).reduce((a,[,v])=>a+v,0);
+      const curM=Object.entries(curSnap.byCat||{}).filter(([c])=>mCats.some(mc=>c.includes(mc))).reduce((a,[,v])=>a+v,0);
+      effective=curM>prevM*1.1;
+    }
+    else{effective=false;}
+    s.effective=effective;
+    s.evaluatedDate=todayStr;
+  });
+}
 
 // ── Celebration System ──
 let celebQueue=[];
@@ -1238,6 +1299,27 @@ $('#btnRefresh').addEventListener('click',()=>{syncPull();fetchYT();});
 const dn=['日','月','火','水','木','金','土'];
 $('#dayB').textContent=`${today.getMonth()+1}/${today.getDate()} (${dn[today.getDay()]}) — Day ${dayN}`;
 $('#ftr').textContent=`Day ${dayN}`;
+
+// ログ基盤：起動時にスナップショット・評価・提案ログ
+snapshotIfNeeded();
+evaluateSuggestions();
+// 提案ログ：今週の主要提案を記録
+(function seedSuggestions(){
+  const G=DB.goals||DEF_GOALS;
+  const sub=DB.kpi?.subscribers||0;
+  const plays=DB.kpi?.total_plays||0;
+  const wt=weekTotal();
+  const goalSec=G.weeklyHours*3600;
+  if(sub<G.subTarget)logSuggestion(`登録者を増やすためにSNS・コンテンツ投稿を強化しよう`,'kpi_sub',{target:G.subTarget});
+  if(plays<G.playTarget)logSuggestion(`再生数を増やすためにYouTube最適化（サムネ・タイトル）を見直そう`,'kpi_play',{target:G.playTarget});
+  if(wt<goalSec)logSuggestion(`今週の作業時間が目標に届いていない。まず30分だけ始めよう`,'work_hours',{goalSec});
+  const mCats=['🎵作曲','🎛️MIX','🎬MV','🎤ボーカル','🚀リリース'];
+  const bc=weekByCat();
+  const musicSec=Object.entries(bc).filter(([c])=>mCats.some(mc=>c.includes(mc))).reduce((s,[,v])=>s+v,0);
+  if(wt>3600&&musicSec<wt*0.4)logSuggestion(`音楽制作の比率が低い。今週は制作時間を優先しよう`,'music_ratio',{});
+  save();
+})();
+
 render();
 syncPull();
 fetchYT();
