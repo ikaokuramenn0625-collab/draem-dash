@@ -397,16 +397,15 @@ function importData(file){
     try{
       const imported=JSON.parse(e.target.result);
       if(!imported||typeof imported!=='object')throw 0;
-      if(confirm(`インポートします。現在のデータとマージされます。\nタスク: ${imported.tasks?.length||0}件\nログ: ${imported.timerLog?.length||0}件\n\nよろしいですか？`)){
+      showConfirm(`インポートします。現在のデータとマージされます。<br>タスク: ${imported.tasks?.length||0}件<br>ログ: ${imported.timerLog?.length||0}件`,()=>{
         mergeDB(imported);
         DB.ver=(DB.ver||0)+1;
         DB.updated=new Date().toISOString();
         localStorage.setItem(DB_KEY,JSON.stringify(DB));
         render();
         syncPush(true);
-        alert('インポート完了！');
-      }
-    }catch{alert('ファイルが読み込めませんでした');}
+      });
+    }catch{showAlert('ファイルが読み込めませんでした');}
   };
   reader.readAsText(file);
 }
@@ -767,7 +766,7 @@ function renderLog(){
     el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();go();},{passive:false});
   });
   $('#actLog').querySelectorAll('.al-s-del').forEach(el=>{
-    const go=()=>{if(confirm('この記録を削除しますか？')){const idx=+el.dataset.li;if(idx>=0)DB.timerLog.splice(idx,1);save();render();}};
+    const go=()=>{showConfirm('この記録を削除しますか？',()=>{const idx=+el.dataset.li;if(idx>=0)DB.timerLog.splice(idx,1);save();render();});};
     el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();go();});
     el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();go();},{passive:false});
   });
@@ -817,6 +816,18 @@ function renderWeeklyReview(){
 
   // Current song advice
   if(cur){const stageIdx=DB.songStage||0;const nextDeadline=cur.date?Math.ceil((new Date(cur.date)-today)/864e5):null;if(nextDeadline!=null&&nextDeadline<=14)items.push({c:'tip',t:`「${cur.title}」リリースまで <b>${nextDeadline}日</b> — ${STAGES[stageIdx]}を今週中に完了させよう`});}
+
+  // Mood trend (this week)
+  const moods=['😤','😐','🙂','😊','🔥'];
+  const weekStart=new Date(today);weekStart.setDate(today.getDate()-dayOfWeek);
+  const weekStartStr=weekStart.toISOString().slice(0,10);
+  const weekRefs=(DB.reflections||[]).filter(r=>r.date>=weekStartStr&&r.date<=todayStr);
+  if(weekRefs.length>=2){
+    const avgMood=weekRefs.reduce((s,r)=>s+(r.mood||0),0)/weekRefs.length;
+    const trend=moods[Math.round(avgMood)];
+    const moodLabel=['しんどい週','普通の週','良い週','充実した週','最高の週'][Math.round(avgMood)];
+    items.push({c:avgMood>=3?'good':avgMood>=2?'tip':'warn',t:`今週の気分: ${weekRefs.map(r=>moods[r.mood||0]).join(' ')} → <b>${trend} ${moodLabel}</b>`});
+  }
 
   $('#weeklyReview').innerHTML=`<div class="wr"><div class="wr-head">📊 Week ${Math.ceil(dayN/7)} — ${todayStr.slice(5)} 時点</div>${items.map(i=>`<div class="wr-item ${i.c}">${i.t}</div>`).join('')}</div>`;
 }
@@ -879,10 +890,7 @@ function render(){
     recordDay();save();render();
   }));
   const addNoteEl=$('#addNote');
-  if(addNoteEl)addNoteEl.addEventListener('click',()=>{
-    const note=prompt('今日のひとこと:');
-    if(note!==null){const r=(DB.reflections||[]).find(r=>r.date===todayStr);if(r)r.note=note;save();render();}
-  });
+  if(addNoteEl)addNoteEl.addEventListener('click',()=>openModal('reflect'));
 
   // Insights
   const insights=calcInsights();
@@ -893,7 +901,8 @@ function render(){
   // Focus
   const focus=calcFocus();
   const fcls=focus.color==='red'?'border-color:var(--red)':focus.color==='warn'?'border-color:rgba(212,168,58,.4)':'';
-  $('#focus').innerHTML=`<div class="focus-label">Tonight's Focus</div><div class="focus-text">${esc(focus.text)}</div>${focus.sub?'<div class="focus-sub">'+focus.sub+'</div>':''}`;
+  const focusLabel=new Date().getHours()<17?"Today's Focus":"Tonight's Focus";
+  $('#focus').innerHTML=`<div class="focus-label">${focusLabel}</div><div class="focus-text">${esc(focus.text)}</div>${focus.sub?'<div class="focus-sub">'+focus.sub+'</div>':''}`;
   if(fcls)$('#focus').style.cssText=fcls;else $('#focus').style.cssText='';
 
   renderTimer();
@@ -967,6 +976,22 @@ function render(){
   $('#mission').innerHTML=`<div class="mission-text">${esc(lines[0])}</div>${lines[1]?'<div class="mission-sub">'+esc(lines[1])+'</div>':''}`;
   $('#mission').style.cursor='pointer';
   $('#mission').onclick=()=>openModal('mission');
+}
+
+// ── Confirm helper (replaces native confirm/alert) ──
+function showConfirm(msg, onYes) {
+  $('#mTitle').textContent='確認';
+  $('#mFields').innerHTML=`<div style="font-size:.82rem;color:var(--t1);line-height:1.65;padding:.2rem 0">${msg}</div>`;
+  $('#mSave').textContent='はい';
+  $('#mSave').onclick=()=>{$('#mSave').textContent='保存';$('#modalBg').classList.remove('show');onYes();};
+  $('#modalBg').classList.add('show');
+}
+function showAlert(msg) {
+  $('#mTitle').textContent='エラー';
+  $('#mFields').innerHTML=`<div style="font-size:.82rem;color:var(--t1);line-height:1.65;padding:.2rem 0">${msg}</div>`;
+  $('#mSave').textContent='OK';
+  $('#mSave').onclick=()=>{$('#mSave').textContent='保存';$('#modalBg').classList.remove('show');};
+  $('#modalBg').classList.add('show');
 }
 
 // ── Modals ──
@@ -1045,7 +1070,7 @@ function openModal(type,extra){
       const h=+(($('#lH').value)||0);
       const m=+(($('#lM').value)||0);
       const sec=h*3600+m*60;
-      if(sec<60){alert('1分以上入力してください');return;}
+      if(sec<60){$('#mFields').querySelector('.modal-err')?.remove();$('#mFields').insertAdjacentHTML('beforeend','<div class="modal-err" style="color:var(--red);font-size:.65rem;margin-top:.4rem">1分以上入力してください</div>');return;}
       const ts=new Date(date).getTime();
       DB.timerLog.push({date,cat,sec,ts,manual:true});
       if(!DB.days.includes(date))DB.days.push(date);
@@ -1072,11 +1097,21 @@ function openModal(type,extra){
       const nh=+(($('#lH').value)||0);
       const nm=+(($('#lM').value)||0);
       const sec=nh*3600+nm*60;
-      if(sec<60){alert('1分以上入力してください');return;}
+      if(sec<60){$('#mFields').querySelector('.modal-err')?.remove();$('#mFields').insertAdjacentHTML('beforeend','<div class="modal-err" style="color:var(--red);font-size:.65rem;margin-top:.4rem">1分以上入力してください</div>');return;}
       DB.timerLog[idx]={date,cat,sec,ts:l.ts||new Date(date).getTime(),manual:true};
       if(!DB.days.includes(date))DB.days.push(date);
       save();render();
       $('#modalBg').classList.remove('show');
+    };
+  }else if(type==='reflect'){
+    const existingRef=(DB.reflections||[]).find(r=>r.date===todayStr);
+    $('#mTitle').textContent='今日のひとこと';
+    $('#mFields').innerHTML=`<div class="mf"><label>メモ</label><input id="reflectNote" placeholder="今日の一言..." value="${esc(existingRef?.note||'')}"></div>`;
+    $('#mSave').onclick=()=>{
+      const note=$('#reflectNote').value;
+      const r=(DB.reflections||[]).find(r=>r.date===todayStr);
+      if(r)r.note=note;
+      save();render();$('#modalBg').classList.remove('show');
     };
   }else if(type==='sync'){
     const c=gc(),y=ytConf();
