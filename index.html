@@ -793,7 +793,9 @@ function toggleTimer(){
   if(timerRunning()){
     const elapsed=timerElapsed();
     if(elapsed>=10){
-      DB.timerLog.push({date:todayStr,cat:DB.timerCat,sec:elapsed,ts:DB.timerStart});
+      // 停止時の実際の日付を使う（日付またぎ対策）
+      const stopDate=new Date().toISOString().slice(0,10);
+      DB.timerLog.push({date:stopDate,cat:DB.timerCat,sec:elapsed,ts:DB.timerStart});
     }
     DB.timerStart=null;
   }else{
@@ -952,9 +954,35 @@ function renderWeeklyReview(){
   // vs last week
   if(prevTotal>0){const diff=Math.round((thisTotal-prevTotal)/prevTotal*100);items.push({c:diff>=0?'good':'warn',t:`先週比 <b>${diff>=0?'+':''}${diff}%</b> (${fmtTime(prevTotal)} → ${fmtTime(thisTotal)})`});}
 
-  // Music ratio（仕事・コンサルなどを除いた比率）
-  const baseTotal=Math.max(1,thisTotal-neutralTime);
-  if(baseTotal>1800){const pct=Math.round(musicTime/baseTotal*100);items.push({c:pct>=50?'good':'warn',t:`音楽制作の比率 (仕事/コンサル除く): <b>${pct}%</b> ${pct<50?'— もっと音楽に時間を':'— Good balance'}`});}
+  // 音楽活動内の比率分析（コンサル・JBG除外した上で、音楽カテゴリ間の比率を見る）
+  const musicBreakdown={};
+  musicCats.forEach(mc=>{
+    const sec=Object.entries(thisW).filter(([c])=>c.includes(mc)).reduce((s,[,v])=>s+v,0);
+    if(sec>0)musicBreakdown[mc]=sec;
+  });
+  const totalMusicSec=Object.values(musicBreakdown).reduce((s,v)=>s+v,0);
+  if(totalMusicSec>3600){
+    // 最も多いカテゴリと最も少ないカテゴリ
+    const sorted=Object.entries(musicBreakdown).sort((a,b)=>b[1]-a[1]);
+    const topMcat=sorted[0];
+    const missingMcats=musicCats.filter(mc=>!musicBreakdown[mc]);
+    const breakdown=sorted.map(([c,s])=>`${c.split(/[a-zA-Z\s]/)[0]}${Math.round(s/totalMusicSec*100)}%`).join(' ');
+    items.push({c:'tip',t:`音楽内訳: ${breakdown}`});
+    // 偏り警告
+    if(topMcat&&topMcat[1]/totalMusicSec>0.7)items.push({c:'warn',t:`<b>${topMcat[0]}</b>に${Math.round(topMcat[1]/totalMusicSec*100)}%集中 — 他工程も進めよう`});
+    if(missingMcats.length)items.push({c:'tip',t:`今週未着手: ${missingMcats.join(' ')} — 制作フロー全体を回そう`});
+  }
+
+  // 睡眠アラート
+  const wkStart0=new Date(today);wkStart0.setDate(today.getDate()-dayOfWeek);
+  const wkStartStr0=wkStart0.toISOString().slice(0,10);
+  const weekRefs0=(DB.reflections||[]).filter(r=>r.date>=wkStartStr0&&r.date<=todayStr&&r.sleep!=null);
+  if(weekRefs0.length>0){
+    const avgSleep=weekRefs0.reduce((s,r)=>s+r.sleep,0)/weekRefs0.length;
+    if(avgSleep<6)items.push({c:'warn',t:`⚠️ 今週の平均睡眠 <b>${avgSleep.toFixed(1)}h</b> — 睡眠不足が効率に影響している可能性`});
+    else if(avgSleep<7)items.push({c:'tip',t:`😴 平均睡眠 <b>${avgSleep.toFixed(1)}h</b> — あと1時間増やすと集中力が上がる`});
+    else items.push({c:'good',t:`😴 平均睡眠 <b>${avgSleep.toFixed(1)}h</b> — 良好`});
+  }
 
   // Pace
   if(released<Math.floor(expectedSongs))items.push({c:'warn',t:`ペース遅れ: <b>${released}曲</b> / 期待 ${Math.round(expectedSongs*10)/10}曲 — 制作加速が必要`});
@@ -1346,11 +1374,18 @@ function openModal(type,extra){
   }else if(type==='reflect'){
     const existingRef=(DB.reflections||[]).find(r=>r.date===todayStr);
     $('#mTitle').textContent='今日のひとこと';
-    $('#mFields').innerHTML=`<div class="mf"><label>メモ</label><input id="reflectNote" placeholder="今日の一言..." value="${esc(existingRef?.note||'')}"></div>`;
+    $('#mFields').innerHTML=`
+      <div class="mf"><label>メモ</label><input id="reflectNote" placeholder="今日の一言..." value="${esc(existingRef?.note||'')}"></div>
+      <div class="mf" style="display:flex;align-items:center;gap:.5rem">
+        <label style="flex:1">睡眠時間</label>
+        <input id="reflectSleep" type="number" min="0" max="24" step="0.5" placeholder="時間" value="${existingRef?.sleep??''}" style="width:4rem;text-align:center">
+        <span style="font-size:.55rem;color:var(--t3)">h</span>
+      </div>`;
     $('#mSave').onclick=()=>{
       const note=$('#reflectNote').value;
+      const sleep=$('#reflectSleep').value!==''?+$('#reflectSleep').value:null;
       const r=(DB.reflections||[]).find(r=>r.date===todayStr);
-      if(r)r.note=note;
+      if(r){r.note=note;r.sleep=sleep;}
       save();render();$('#modalBg').classList.remove('show');
     };
   }else if(type==='sync'){
@@ -1492,10 +1527,18 @@ function buildWeeklySummary(){
   // カテゴリ別時間
   const catBreakdown=Object.entries(bc).sort((a,b)=>b[1]-a[1]).map(([c,s])=>`  ${c}: ${fmtTime(s)}`).join('\n')||'  (記録なし)';
 
-  // 気分トレンド
+  // 気分・睡眠トレンド
   const moods=['😤','😐','🙂','😊','🔥'];
   const weekRefs=(DB.reflections||[]).filter(r=>r.date>=ws&&r.date<=todayStr);
   const moodStr=weekRefs.length?weekRefs.map(r=>moods[r.mood||0]).join(' '):'(記録なし)';
+  const sleepRefs=weekRefs.filter(r=>r.sleep!=null);
+  const avgSleepStr=sleepRefs.length?(sleepRefs.reduce((s,r)=>s+r.sleep,0)/sleepRefs.length).toFixed(1)+'h':'(未記録)';
+
+  // 音楽活動内訳
+  const mCatsSum={};
+  musicCats.forEach(mc=>{const s=Object.entries(wl.reduce((m,l)=>{m[l.cat]=(m[l.cat]||0)+l.sec;return m;},{})).filter(([c])=>c.includes(mc)).reduce((a,[,v])=>a+v,0);if(s>0)mCatsSum[mc]=s;});
+  const totalMusicSec2=Object.values(mCatsSum).reduce((s,v)=>s+v,0);
+  const musicBreakdownStr=totalMusicSec2>0?Object.entries(mCatsSum).sort((a,b)=>b[1]-a[1]).map(([c,s])=>`  ${c}: ${fmtTime(s)} (${Math.round(s/totalMusicSec2*100)}%)`).join('\n'):'  (記録なし)';
 
   const lines=[
     `# dræm. 週次レビュー — ${todayStr} (Week ${Math.ceil(dayN/7)})`,
@@ -1505,6 +1548,10 @@ function buildWeeklySummary(){
     `- 先週比: ${prevTotal>0?(thisTotal>=prevTotal?'+':'')+Math.round((thisTotal-prevTotal)/Math.max(1,prevTotal)*100)+'%':'初週'}`,
     `- ストリーク: ${sk}日連続`,
     `- 気分: ${moodStr}`,
+    `- 平均睡眠: ${avgSleepStr}`,
+    ``,
+    `## 音楽活動内訳`,
+    musicBreakdownStr,
     ``,
     `## カテゴリ別`,
     catBreakdown,
