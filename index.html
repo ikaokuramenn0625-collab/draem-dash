@@ -1126,7 +1126,7 @@ function render(){
   // Reflection bar
   const todayRef=(DB.reflections||[]).find(r=>r.date===todayStr);
   const moods=['😤','😐','🙂','😊','🔥'];
-  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}</div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
+  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="number" min="0" max="24" step="0.5" value="${todayRef?.sleep??''}" placeholder="—" style="width:2.2rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
   $('#reflectBar').querySelectorAll('.reflect-btn').forEach(el=>el.addEventListener('click',()=>{
     const mood=+el.dataset.mood;
     const existing=(DB.reflections||[]).findIndex(r=>r.date===todayStr);
@@ -1134,6 +1134,14 @@ function render(){
     else DB.reflections.push({date:todayStr,mood,note:''});
     recordDay();save();render();
   }));
+  const sleepEl=$('#sleepInput');
+  if(sleepEl)sleepEl.addEventListener('change',()=>{
+    const v=sleepEl.value!==''?+sleepEl.value:null;
+    const r=(DB.reflections||[]).find(r=>r.date===todayStr);
+    if(r)r.sleep=v;
+    else DB.reflections.push({date:todayStr,mood:null,note:'',sleep:v});
+    save();
+  });
   const addNoteEl=$('#addNote');
   if(addNoteEl)addNoteEl.addEventListener('click',()=>openModal('reflect'));
 
