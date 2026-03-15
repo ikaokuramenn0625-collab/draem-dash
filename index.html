@@ -1220,6 +1220,7 @@ function render(){
   const KD=[
     {k:'subscribers',l:'Subscribers',t:G.subTarget,f:v=>v.toLocaleString(),p:pred.sub},
     {k:'total_plays',l:'Plays',t:G.playTarget,f:v=>v.toLocaleString(),p:pred.plays},
+    {k:'nnFollowers',l:'ニコニコ',t:0,f:v=>v.toLocaleString(),p:null},
     {k:'songs',l:'Songs',t:G.yearSongs,f:v=>v+'',p:null},
     {k:'revenue',l:'Revenue',t:G.revenueTarget,f:v=>'¥'+v.toLocaleString(),p:pred.rev},
   ];
@@ -1238,7 +1239,9 @@ function render(){
         predHtml=`<div style="font-size:.45rem;color:${color};margin-top:.1rem">${d.p.onTrack?'✓ On Track —':'⚡ 要'} ${needStr}</div>`;
       }
     }
-    return`<div class="kpi"><div class="kpi-l">${d.l}</div><div class="kpi-v">${d.f(v)}</div><div class="kpi-t">/ ${d.f(d.t)}</div><div class="kpi-bar"><div class="kpi-fill" style="width:${p}%"></div></div>${predHtml}</div>`;
+    const barHtml=d.t>0?`<div class="kpi-bar"><div class="kpi-fill" style="width:${p}%"></div></div>`:'';
+    const tHtml=d.t>0?`<div class="kpi-t">/ ${d.f(d.t)}</div>`:'';
+    return`<div class="kpi"><div class="kpi-l">${d.l}</div><div class="kpi-v">${d.f(v)}</div>${tHtml}${barHtml}${predHtml}</div>`;
   }).join('');
   $('#kpiGrid').querySelectorAll('.kpi').forEach(el=>el.addEventListener('click',()=>openModal('kpi')));
 
