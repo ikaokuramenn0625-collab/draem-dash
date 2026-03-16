@@ -376,7 +376,7 @@ function calcRealProgress(){
 // ── DB ──
 const DB_KEY='draem_db';
 const DB_BACKUP_KEY='draem_db_backup';
-function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,songs:7,revenue:0},songStage:0,timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',songs:null,goals:null,recurring:[],ver:0}}
+function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,songs:7,revenue:0},songStage:0,timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',songs:null,goals:null,recurring:[],apiSettings:{},ver:0}}
 function loadDB(){
   try{
     const raw=localStorage.getItem(DB_KEY);
@@ -685,6 +685,7 @@ function mergeDB(remote){
     if(remote.goals&&JSON.stringify(remote.goals)!==JSON.stringify(local.goals)){local.goals=remote.goals;changed=true;}
     if(remote.recurring&&JSON.stringify(remote.recurring)!==JSON.stringify(local.recurring)){local.recurring=remote.recurring;changed=true;}
     if(remote.bestStreak>(local.bestStreak||0)){local.bestStreak=remote.bestStreak;changed=true;}
+    if(remote.apiSettings&&JSON.stringify(remote.apiSettings)!==JSON.stringify(local.apiSettings)){local.apiSettings=remote.apiSettings;changed=true;}
   }
   // Merge reflections by date
   const localRefDates=new Set((local.reflections||[]).map(r=>r.date));
@@ -692,6 +693,14 @@ function mergeDB(remote){
 
   return changed;
 }
+
+function restoreApiFromDB(){
+  const a=DB.apiSettings;if(!a)return;
+  if(a.gist?.id&&!gc().id)localStorage.setItem(GK,JSON.stringify(a.gist));
+  if(a.yt?.apiKey&&!ytConf().apiKey)localStorage.setItem(YT_KEY,JSON.stringify(a.yt));
+  if(a.nn?.userId&&!nnConf().userId)localStorage.setItem(NN_KEY,JSON.stringify(a.nn));
+}
+restoreApiFromDB();
 
 async function syncPull(){
   const c=gc();if(!c.id||!c.token)return;
@@ -704,6 +713,8 @@ async function syncPull(){
     const g=await r.json();
     const rm=JSON.parse(g.files['draem.json'].content);
     const changed=mergeDB(rm);
+    // リモートにapiSettingsがあればlocalStorageに復元
+    if(rm.apiSettings)restoreApiFromDB();
     if(changed){
       DB.ver=Math.max(DB.ver||0,rm.ver||0)+1;
       DB.updated=new Date().toISOString();
@@ -1475,9 +1486,16 @@ function openModal(type,extra){
         <label style="flex:1;padding:.35rem;background:var(--s2);color:var(--t2);border:1px solid rgba(255,255,255,.1);border-radius:6px;font-size:.6rem;cursor:pointer;text-align:center;font-family:inherit">⬆ インポート<input type="file" id="fileImport" accept=".json" style="display:none"></label>
       </div>`;
     function saveApiSettings(){
-      localStorage.setItem(GK,JSON.stringify({id:$('#sG').value.trim(),token:$('#sT').value.trim()}));
-      localStorage.setItem(YT_KEY,JSON.stringify({apiKey:$('#yK').value.trim(),channelId:$('#yC').value.trim()}));
-      localStorage.setItem(NN_KEY,JSON.stringify({userId:$('#nnU').value.trim()}));
+      const gist={id:$('#sG').value.trim(),token:$('#sT').value.trim()};
+      const yt={apiKey:$('#yK').value.trim(),channelId:$('#yC').value.trim()};
+      const nn={userId:$('#nnU').value.trim()};
+      localStorage.setItem(GK,JSON.stringify(gist));
+      localStorage.setItem(YT_KEY,JSON.stringify(yt));
+      localStorage.setItem(NN_KEY,JSON.stringify(nn));
+      // DBにも保存してGist同期に乗せる
+      if(!DB.apiSettings)DB.apiSettings={};
+      DB.apiSettings={gist,yt,nn};
+      save();
     }
     $('#mSave').onclick=()=>{saveApiSettings();$('#modalBg').classList.remove('show');syncPull();fetchYT();fetchNN();};
     setTimeout(()=>{
