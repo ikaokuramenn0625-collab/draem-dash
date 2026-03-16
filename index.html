@@ -1453,13 +1453,13 @@ function openModal(type,extra){
     $('#mTitle').textContent='設定';
     $('#mFields').innerHTML=`
       <div style="font-size:.55rem;color:var(--gold);margin-bottom:.3rem;font-weight:600">SYNC (Gist)</div>
-      <div class="mf"><label>Gist ID</label><input id="sG" value="${c.id||''}"></div>
-      <div class="mf"><label>GitHub Token</label><input id="sT" type="password" value="${c.token||''}"></div>
+      <div class="mf"><label>Gist ID ${c.id?'<span style="color:var(--grn)">✓</span>':''}</label><input id="sG" value="${c.id||''}"></div>
+      <div class="mf"><label>GitHub Token ${c.token?'<span style="color:var(--grn)">✓</span>':''}</label><input id="sT" type="password" value="${c.token||''}"></div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">YOUTUBE AUTO KPI</div>
-      <div class="mf"><label>API Key</label><input id="yK" type="password" value="${y.apiKey||''}"></div>
-      <div class="mf"><label>Channel ID</label><input id="yC" value="${y.channelId||''}"></div>
+      <div class="mf"><label>API Key ${y.apiKey?'<span style="color:var(--grn)">✓</span>':''}</label><input id="yK" type="password" value="${y.apiKey||''}"></div>
+      <div class="mf"><label>Channel ID ${y.channelId?'<span style="color:var(--grn)">✓</span>':''}</label><input id="yC" value="${y.channelId||''}"></div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">NICONICO AUTO KPI</div>
-      <div class="mf"><label>User ID</label><input id="nnU" value="${nnConf().userId||''}" placeholder="数字のみ (例: 12345678)"></div>
+      <div class="mf"><label>User ID ${nnConf().userId?'<span style="color:var(--grn)">✓</span>':''}</label><input id="nnU" value="${nnConf().userId||''}" placeholder="数字のみ (例: 12345678)"></div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">TOOLS</div>
       <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
         <button id="btnGoals" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🎯 目標設定</button>
@@ -1474,14 +1474,15 @@ function openModal(type,extra){
         <button id="btnExport" style="flex:1;padding:.35rem;background:var(--s2);color:var(--t2);border:1px solid rgba(255,255,255,.1);border-radius:6px;font-size:.6rem;cursor:pointer;font-family:inherit">⬇ エクスポート</button>
         <label style="flex:1;padding:.35rem;background:var(--s2);color:var(--t2);border:1px solid rgba(255,255,255,.1);border-radius:6px;font-size:.6rem;cursor:pointer;text-align:center;font-family:inherit">⬆ インポート<input type="file" id="fileImport" accept=".json" style="display:none"></label>
       </div>`;
-    $('#mSave').onclick=()=>{
+    function saveApiSettings(){
       localStorage.setItem(GK,JSON.stringify({id:$('#sG').value.trim(),token:$('#sT').value.trim()}));
       localStorage.setItem(YT_KEY,JSON.stringify({apiKey:$('#yK').value.trim(),channelId:$('#yC').value.trim()}));
       localStorage.setItem(NN_KEY,JSON.stringify({userId:$('#nnU').value.trim()}));
-      $('#modalBg').classList.remove('show');
-      syncPull();fetchYT();fetchNN();
-    };
+    }
+    $('#mSave').onclick=()=>{saveApiSettings();$('#modalBg').classList.remove('show');syncPull();fetchYT();fetchNN();};
     setTimeout(()=>{
+      // 入力欄を離れたら即保存
+      ['sG','sT','yK','yC','nnU'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('blur',saveApiSettings);});
       const ex=$('#btnExport');if(ex)ex.addEventListener('click',exportData);
       const fi=$('#fileImport');if(fi)fi.addEventListener('change',e=>{if(e.target.files[0])importData(e.target.files[0]);});
       const bg=$('#btnGoals');if(bg)bg.addEventListener('click',()=>{$('#modalBg').classList.remove('show');setTimeout(()=>openModal('goals'),100);});
