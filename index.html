@@ -618,6 +618,7 @@ function calcInsights(){
 
 // ── Sleep parse helper (accepts "6:13" or "6.5" or "7") ──
 function parseSleep(v){if(v===''||v==null)return null;const s=String(v).trim();if(s.includes(':')){const[h,m]=s.split(':');const val=+(h||0)+(+(m||0))/60;return isNaN(val)?null:+val.toFixed(2);}const n=+s;return isNaN(n)?null:n;}
+function decToHMM(h){if(h==null||h==='')return '';const hr=Math.floor(+h);const mn=Math.round((+h-hr)*60);return hr+':'+(mn<10?'0':'')+mn;}
 function formatSleepInput(el){const digits=el.value.replace(/\D/g,'').slice(0,4);if(digits.length===4){el.value=digits.slice(0,2)+':'+digits.slice(2);}else if(digits.length===3){el.value=digits.slice(0,1)+':'+digits.slice(1);}else{el.value=digits;}}
 
 // ── Composition Flow ──
@@ -1274,7 +1275,7 @@ function render(){
   // Reflection bar
   const todayRef=(DB.reflections||[]).find(r=>r.date===todayStr);
   const moods=['😤','😐','🙂','😊','🔥'];
-  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep??''}" placeholder="6:13" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
+  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep!=null?decToHMM(todayRef.sleep):''}" placeholder="6:13" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
   $('#reflectBar').querySelectorAll('.reflect-btn').forEach(el=>el.addEventListener('click',()=>{
     const mood=+el.dataset.mood;
     const existing=(DB.reflections||[]).findIndex(r=>r.date===todayStr);
@@ -1567,7 +1568,7 @@ function openModal(type,extra){
       <div class="mf"><label>メモ</label><input id="reflectNote" placeholder="今日の一言..." value="${esc(existingRef?.note||'')}"></div>
       <div class="mf" style="display:flex;align-items:center;gap:.5rem">
         <label style="flex:1">睡眠時間</label>
-        <input id="reflectSleep" type="text" inputmode="numeric" placeholder="6:13" value="${existingRef?.sleep??''}" style="width:4rem;text-align:center">
+        <input id="reflectSleep" type="text" inputmode="numeric" placeholder="6:13" value="${existingRef?.sleep!=null?decToHMM(existingRef.sleep):''}" style="width:4rem;text-align:center">
         <span style="font-size:.55rem;color:var(--t3)">h</span>
       </div>`;
     setTimeout(()=>{const rs=$('#reflectSleep');if(rs)rs.addEventListener('input',()=>formatSleepInput(rs));},50);
