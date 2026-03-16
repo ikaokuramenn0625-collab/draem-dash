@@ -1136,47 +1136,46 @@ function renderCompFlow(){
     const{done,dates}=cfRemap(doneSet,cf.dates,idx=>idx<i?idx:idx>i?idx-1:null);
     cf.done=done;cf.dates=dates;save();renderCompFlow();
   }));
-  // ── Drag & Drop (pointer events, touch対応) ──
+  // ── Drag & Drop (document-level pointer events) ──
   const stepsEl=el.querySelector('#cfSteps');
   el.querySelectorAll('.cf-drag').forEach(handle=>{
-    let dragIdx=null,dragRow=null;
     handle.addEventListener('pointerdown',e=>{
       e.preventDefault();e.stopPropagation();
-      dragIdx=+handle.dataset.drag;
-      dragRow=handle.closest('.cf-step');
+      const from=+handle.dataset.drag;
+      const dragRow=handle.closest('.cf-step');
       dragRow.classList.add('cf-dragging');
-      handle.setPointerCapture(e.pointerId);
-    });
-    handle.addEventListener('pointermove',e=>{
-      if(dragIdx==null)return;e.preventDefault();
-      stepsEl.querySelectorAll('.cf-drop-here').forEach(r=>r.classList.remove('cf-drop-here'));
-      const rows=[...stepsEl.querySelectorAll('.cf-step:not(.cf-dragging)')];
-      for(const r of rows){if(e.clientY<r.getBoundingClientRect().top+r.offsetHeight/2){r.classList.add('cf-drop-here');break;}}
-    });
-    handle.addEventListener('pointerup',e=>{
-      if(dragIdx==null)return;
-      const from=dragIdx;
-      dragIdx=null;
-      // cf-dragging を外す前に位置を確定
-      const rows=[...stepsEl.querySelectorAll('.cf-step:not(.cf-dragging)')];
-      let insertBeforeCI=null;
-      rows.forEach(r=>{r.classList.remove('cf-drop-here');});
-      for(const r of rows){if(e.clientY<r.getBoundingClientRect().top+r.offsetHeight/2){insertBeforeCI=+r.dataset.ci;break;}}
-      dragRow.classList.remove('cf-dragging');dragRow=null;
-      // splice後のインデックスに変換
-      let newIdx=rows.length;
-      if(insertBeforeCI!==null) newIdx=insertBeforeCI<from?insertBeforeCI:insertBeforeCI-1;
-      if(newIdx!==from){
-        const[moved]=cf.steps.splice(from,1);cf.steps.splice(newIdx,0,moved);
-        const{done,dates}=cfRemap(cf.done,cf.dates,idx=>{
-          if(idx===from)return newIdx;
-          if(from<newIdx&&idx>from&&idx<=newIdx)return idx-1;
-          if(from>newIdx&&idx>=newIdx&&idx<from)return idx+1;
-          return idx;
-        });
-        cf.done=done;cf.dates=dates;save();
-      }
-      renderCompFlow();
+      const getClientY=e=>e.touches?e.touches[0].clientY:e.clientY;
+      const highlight=cy=>{
+        stepsEl.querySelectorAll('.cf-drop-here').forEach(r=>r.classList.remove('cf-drop-here'));
+        const rows=[...stepsEl.querySelectorAll('.cf-step:not(.cf-dragging)')];
+        for(const r of rows){if(cy<r.getBoundingClientRect().top+r.offsetHeight/2){r.classList.add('cf-drop-here');break;}}
+      };
+      const onMove=e=>{e.preventDefault();highlight(getClientY(e));};
+      const onUp=e=>{
+        document.removeEventListener('pointermove',onMove,{passive:false});
+        document.removeEventListener('pointerup',onUp);
+        const cy=getClientY(e);
+        const rows=[...stepsEl.querySelectorAll('.cf-step:not(.cf-dragging)')];
+        let insertBeforeCI=null;
+        rows.forEach(r=>r.classList.remove('cf-drop-here'));
+        for(const r of rows){if(cy<r.getBoundingClientRect().top+r.offsetHeight/2){insertBeforeCI=+r.dataset.ci;break;}}
+        dragRow.classList.remove('cf-dragging');
+        let newIdx=rows.length;
+        if(insertBeforeCI!==null)newIdx=insertBeforeCI<from?insertBeforeCI:insertBeforeCI-1;
+        if(newIdx!==from){
+          const[moved]=cf.steps.splice(from,1);cf.steps.splice(newIdx,0,moved);
+          const{done,dates}=cfRemap(cf.done,cf.dates,idx=>{
+            if(idx===from)return newIdx;
+            if(from<newIdx&&idx>from&&idx<=newIdx)return idx-1;
+            if(from>newIdx&&idx>=newIdx&&idx<from)return idx+1;
+            return idx;
+          });
+          cf.done=done;cf.dates=dates;save();
+        }
+        renderCompFlow();
+      };
+      document.addEventListener('pointermove',onMove,{passive:false});
+      document.addEventListener('pointerup',onUp);
     });
   });
   const addBtn=$('#cfAddBtn'),addInp=$('#cfNewStep');
