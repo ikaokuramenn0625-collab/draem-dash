@@ -1039,7 +1039,7 @@ function renderWeeklyReview(){
   // 睡眠アラート
   const wkStart0=new Date(today);wkStart0.setDate(today.getDate()-dayOfWeek);
   const wkStartStr0=wkStart0.toISOString().slice(0,10);
-  const weekRefs0=(DB.reflections||[]).filter(r=>r.date>=wkStartStr0&&r.date<=todayStr&&r.sleep!=null);
+  const weekRefs0=(DB.reflections||[]).filter(r=>r.date>=wkStartStr0&&r.date<=todayStr&&r.sleep!=null&&r.sleep<=24);
   if(weekRefs0.length>0){
     const avgSleep=weekRefs0.reduce((s,r)=>s+r.sleep,0)/weekRefs0.length;
     if(avgSleep<6)items.push({c:'warn',t:`⚠️ 今週の平均睡眠 <b>${avgSleep.toFixed(1)}h</b> — 睡眠不足が効率に影響している可能性`});
@@ -1300,7 +1300,7 @@ function render(){
   // Reflection bar
   const todayRef=(DB.reflections||[]).find(r=>r.date===todayStr);
   const moods=['😤','😐','🙂','😊','🔥'];
-  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep!=null?decToHMM(todayRef.sleep):''}" placeholder="6:13" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
+  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep!=null?decToHMM(todayRef.sleep):''}" placeholder="6:13" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span><span id="sleepHistBtn" style="font-size:.5rem;color:var(--t3);cursor:pointer;margin-left:.2rem" title="履歴を編集">📋</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
   $('#reflectBar').querySelectorAll('.reflect-btn').forEach(el=>el.addEventListener('click',()=>{
     const mood=+el.dataset.mood;
     const existing=(DB.reflections||[]).findIndex(r=>r.date===todayStr);
@@ -1319,6 +1319,8 @@ function render(){
   });
   const addNoteEl=$('#addNote');
   if(addNoteEl)addNoteEl.addEventListener('click',()=>openModal('reflect'));
+  const shBtn=$('#sleepHistBtn');
+  if(shBtn)shBtn.addEventListener('click',()=>openModal('sleepHistory'));
 
   // Insights
   const insights=calcInsights();
@@ -1602,6 +1604,31 @@ function openModal(type,extra){
       save();render();
       $('#modalBg').classList.remove('show');
     };
+  }else if(type==='sleepHistory'){
+    $('#mTitle').textContent='睡眠履歴を編集';
+    const days14=[...Array(14)].map((_,i)=>{const d=new Date(today);d.setDate(today.getDate()-i);return d.toISOString().slice(0,10);});
+    const rowHtml=days14.map(date=>{
+      const ref=(DB.reflections||[]).find(r=>r.date===date);
+      const val=ref?.sleep!=null?decToHMM(ref.sleep):'';
+      const isToday=date===todayStr;
+      const warn=ref?.sleep>24?'color:var(--red)':'';
+      return`<div style="display:flex;align-items:center;gap:.5rem;padding:.2rem 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:.55rem;color:var(--t2);min-width:4rem">${date.slice(5)}${isToday?' 今日':''}</span><input type="text" inputmode="numeric" class="sh-inp" data-date="${date}" value="${val}" placeholder="--:--" style="width:3.2rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .3rem;text-align:center;${warn}"><span style="font-size:.45rem;color:var(--t3)">h</span></div>`;
+    }).join('');
+    $('#mFields').innerHTML=`<div style="font-size:.48rem;color:var(--t3);margin-bottom:.4rem">過去14日分の睡眠時間を編集できます（24h超の値は平均計算から除外されます）</div>${rowHtml}`;
+    setTimeout(()=>{
+      $('#mFields').querySelectorAll('.sh-inp').forEach(inp=>{
+        inp.addEventListener('input',()=>formatSleepInput(inp));
+        inp.addEventListener('change',()=>{
+          const date=inp.dataset.date;
+          const v=parseSleep(inp.value);
+          const idx=(DB.reflections||[]).findIndex(r=>r.date===date);
+          if(idx>=0){DB.reflections[idx].sleep=v;}
+          else if(v!=null){DB.reflections.push({date,mood:null,note:'',sleep:v});}
+          save();
+        });
+      });
+    },50);
+    $('#mSave').onclick=()=>{render();$('#modalBg').classList.remove('show');};
   }else if(type==='reflect'){
     const existingRef=(DB.reflections||[]).find(r=>r.date===todayStr);
     $('#mTitle').textContent='今日のひとこと';
@@ -1778,7 +1805,7 @@ function buildWeeklySummary(){
   const moods=['😤','😐','🙂','😊','🔥'];
   const weekRefs=(DB.reflections||[]).filter(r=>r.date>=ws&&r.date<=todayStr);
   const moodStr=weekRefs.length?weekRefs.map(r=>moods[r.mood||0]).join(' '):'(記録なし)';
-  const sleepRefs=weekRefs.filter(r=>r.sleep!=null);
+  const sleepRefs=weekRefs.filter(r=>r.sleep!=null&&r.sleep<=24);
   const avgSleepStr=sleepRefs.length?(sleepRefs.reduce((s,r)=>s+r.sleep,0)/sleepRefs.length).toFixed(1)+'h':'(未記録)';
 
   // 音楽活動内訳
