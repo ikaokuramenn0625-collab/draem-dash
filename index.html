@@ -1146,15 +1146,26 @@ function renderCompFlow(){
     const done=doneSet.has(i);
     const date=cf.dates[i]||'';
     const dateHtml=done?`<span class="cf-date" data-di="${i}">${date?date.slice(5):'--'}</span>`:'';
-    return`<div class="cf-step ${done?'done-step':''}" data-ci="${i}"><div class="cf-drag" data-drag="${i}">☰</div><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text">${s}</div>${dateHtml}<div class="cf-del" data-xi="${i}">✕</div></div>`;
+    return`<div class="cf-step ${done?'done-step':''}" data-ci="${i}"><div class="cf-drag" data-drag="${i}">☰</div><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text" data-ei="${i}">${s}</div>${dateHtml}<div class="cf-del" data-xi="${i}">✕</div></div>`;
   }).join('');
   el.innerHTML=`<div class="tabs" id="cfTabs">${tabs}</div><div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem"><div class="cf-prog" style="flex:1;margin:0"><div class="cf-prog-fill" style="width:${pct}%"></div></div><span id="cfPctLabel" style="font-size:.5rem;color:var(--t3);white-space:nowrap">${doneSet.size}/${steps.length} (${pct}%)</span></div><div id="cfSteps">${stepHtml}</div><div style="display:flex;gap:.3rem;margin-top:.4rem"><input id="cfNewStep" placeholder="ステップを追加..." style="flex:1;background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:.3rem .5rem;color:var(--t1);font-size:.6rem;font-family:inherit;outline:none"><button id="cfAddBtn" style="padding:.3rem .6rem;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-size:.6rem;font-weight:600;cursor:pointer;font-family:inherit">＋</button></div>`;
   el.querySelectorAll('[data-cfi]').forEach(t=>t.addEventListener('click',()=>{cfActiveSong=+t.dataset.cfi;renderCompFlow();}));
   el.querySelectorAll('.cf-step').forEach(t=>t.addEventListener('click',e=>{
-    if(e.target.closest('.cf-date')||e.target.closest('.cf-del')||e.target.closest('.cf-drag'))return;
+    if(e.target.closest('.cf-date')||e.target.closest('.cf-del')||e.target.closest('.cf-drag')||e.target.closest('.cf-text'))return;
     const i=+t.dataset.ci;
     if(doneSet.has(i)){doneSet.delete(i);delete cf.dates[i];}else{doneSet.add(i);cf.dates[i]=todayStr;}
     cf.done=[...doneSet];save();renderCompFlow();
+  }));
+  el.querySelectorAll('.cf-text').forEach(txt=>txt.addEventListener('click',e=>{
+    e.stopPropagation();
+    const i=+txt.dataset.ei;
+    const inp=document.createElement('input');
+    inp.value=cf.steps[i];
+    inp.style.cssText='flex:1;background:var(--s2);border:1px solid var(--gold);border-radius:4px;color:var(--t1);font-size:.6rem;padding:.1rem .3rem;font-family:inherit;outline:none;min-width:0;width:100%';
+    txt.replaceWith(inp);inp.focus();inp.select();
+    const commit=()=>{const v=inp.value.trim();if(v)cf.steps[i]=v;save();renderCompFlow();};
+    inp.addEventListener('blur',commit);
+    inp.addEventListener('keydown',e2=>{if(e2.key==='Enter')commit();if(e2.key==='Escape'){renderCompFlow();}});
   }));
   el.querySelectorAll('.cf-date').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();openCfDateEdit(d,+d.dataset.di,cf);}));
   el.querySelectorAll('.cf-del').forEach(d=>d.addEventListener('click',e=>{
