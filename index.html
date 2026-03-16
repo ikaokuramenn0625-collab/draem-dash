@@ -1359,7 +1359,7 @@ function openModal(type,extra){
       save();render();$('#modalBg').classList.remove('show');
     };
   }else if(type==='taskEdit'){
-    const t=DB.tasks.find(x=>x.id===arg);if(!t)return;
+    const t=DB.tasks.find(x=>x.id===extra);if(!t)return;
     const catOpts2=TCATS.map(c=>`<option value="${c}" ${c===t.cat?'selected':''}>${c}</option>`).join('');
     const sel='width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.7rem;font-family:inherit';
     $('#mTitle').textContent='タスクを編集';
@@ -1368,7 +1368,7 @@ function openModal(type,extra){
     setTimeout(()=>{const sr=$('#etStopRc');if(sr)sr.addEventListener('click',()=>{DB.recurring=(DB.recurring||[]).filter(r=>r.text!==t.text);t.recurring=false;save();render();$('#modalBg').classList.remove('show');});},50);
   }else if(type==='compFlow'){
     const songs=(DB.songs||[]).filter(s=>s.title);
-    const songIdx=arg!=null?arg:0;
+    const songIdx=extra!=null?extra:0;
     const song=songs[songIdx]||{title:'(曲未設定)'};
     const key=song.title;
     if(!DB.compFlow[key])DB.compFlow[key]={done:[]};
