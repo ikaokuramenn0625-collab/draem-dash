@@ -112,7 +112,7 @@ body{min-height:100dvh}
 /* Tasks */
 .task{display:flex;align-items:center;gap:.4rem;padding:.45rem .6rem;background:var(--s1);border:1px solid rgba(255,255,255,.05);border-radius:8px;margin-bottom:.25rem;cursor:pointer;transition:background .1s}
 .task:active{background:var(--s2)}.task.done{opacity:.3}.task.done .tk-text{text-decoration:line-through}
-.tk-ck{width:16px;height:16px;border:2px solid var(--t3);border-radius:50%;flex-shrink:0}
+.tk-ck{width:16px;height:16px;border:2px solid var(--t3);border-radius:50%;flex-shrink:0;cursor:pointer;padding:4px;box-sizing:content-box}
 .task.done .tk-ck{border-color:var(--grn);background:var(--grn)}
 .tk-body{flex:1;min-width:0}.tk-text{font-size:.75rem;font-weight:500;line-height:1.3}
 .tk-meta{font-size:.5rem;color:var(--t3);margin-top:.05rem;display:flex;gap:.35rem;flex-wrap:wrap}
@@ -1150,9 +1150,9 @@ function renderCompFlow(){
   }).join('');
   el.innerHTML=`<div class="tabs" id="cfTabs">${tabs}</div><div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem"><div class="cf-prog" style="flex:1;margin:0"><div class="cf-prog-fill" style="width:${pct}%"></div></div><span id="cfPctLabel" style="font-size:.5rem;color:var(--t3);white-space:nowrap">${doneSet.size}/${steps.length} (${pct}%)</span></div><div id="cfSteps">${stepHtml}</div><div style="display:flex;gap:.3rem;margin-top:.4rem"><input id="cfNewStep" placeholder="ステップを追加..." style="flex:1;background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:.3rem .5rem;color:var(--t1);font-size:.6rem;font-family:inherit;outline:none"><button id="cfAddBtn" style="padding:.3rem .6rem;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-size:.6rem;font-weight:600;cursor:pointer;font-family:inherit">＋</button></div>`;
   el.querySelectorAll('[data-cfi]').forEach(t=>t.addEventListener('click',()=>{cfActiveSong=+t.dataset.cfi;renderCompFlow();}));
-  el.querySelectorAll('.cf-step').forEach(t=>t.addEventListener('click',e=>{
-    if(e.target.closest('.cf-date')||e.target.closest('.cf-del')||e.target.closest('.cf-drag')||e.target.closest('.cf-text'))return;
-    const i=+t.dataset.ci;
+  el.querySelectorAll('.cf-ck').forEach(ck=>ck.addEventListener('click',e=>{
+    e.stopPropagation();
+    const i=+ck.closest('.cf-step').dataset.ci;
     if(doneSet.has(i)){doneSet.delete(i);delete cf.dates[i];}else{doneSet.add(i);cf.dates[i]=todayStr;}
     cf.done=[...doneSet];save();renderCompFlow();
   }));
@@ -1392,7 +1392,7 @@ function render(){
   const list=filtered();
   if(!list.length){$('#tasks').innerHTML=`<div class="task-empty">${curTab==='done'?'完了タスクなし':'タスクを追加して目標に向かおう'}</div>`;}
   else{$('#tasks').innerHTML=list.map(t=>`<div class="task ${t.done?'done':''}" data-id="${t.id}"><div class="tk-ck"></div><div class="tk-body"><div class="tk-text">${esc(t.text)}${t.recurring?'<span class="tk-rec"> 🔁</span>':''}</div><div class="tk-meta">${t.cat?'<span class="tk-cat">'+CATS[t.cat]+'</span>':''}${dueBadge(t.due)}${t.doneDate?'<span>✓'+t.doneDate.slice(5)+'</span>':''}</div></div><div class="tk-edit" data-e="${t.id}">✏️</div><div class="tk-del" data-d="${t.id}">✕</div></div>`).join('');
-  $('#tasks').querySelectorAll('.task').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.tk-del')&&!e.target.closest('.tk-edit'))toggle(+el.dataset.id);}));
+  $('#tasks').querySelectorAll('.tk-ck').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();toggle(+el.closest('.task').dataset.id);}));
   $('#tasks').querySelectorAll('.tk-del').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();del(+el.dataset.d);}));
   $('#tasks').querySelectorAll('.tk-edit').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openModal('taskEdit',+el.dataset.e);}));}
 
