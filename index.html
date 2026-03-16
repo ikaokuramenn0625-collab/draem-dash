@@ -130,6 +130,8 @@ body{min-height:100dvh}
 .cf-date{font-size:.45rem;color:var(--t3);margin-left:auto;padding:.05rem .25rem;border-radius:3px;border:1px solid rgba(255,255,255,.1);cursor:pointer;white-space:nowrap;flex-shrink:0}
 .cf-date:hover{border-color:var(--gold);color:var(--gold)}
 .cf-del{font-size:.45rem;color:var(--t3);padding:.1rem .2rem;cursor:pointer;opacity:.4;flex-shrink:0}.cf-del:hover{opacity:1;color:var(--red)}
+.cf-arrows{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
+.cf-mv{font-size:.4rem;color:var(--t3);padding:0 .2rem;cursor:pointer;opacity:.4;line-height:1.2}.cf-mv:hover{opacity:1;color:var(--gold)}
 .tk-del{color:var(--t3);font-size:.55rem;padding:.1rem .25rem}
 @media(hover:none){.tk-del{opacity:.5}}
 .task-empty{text-align:center;padding:.8rem;color:var(--t3);font-size:.7rem;background:var(--s1);border-radius:8px;border:1px dashed rgba(255,255,255,.08)}
@@ -1111,26 +1113,40 @@ function renderCompFlow(){
     const done=doneSet.has(i);
     const date=cf.dates[i]||'';
     const dateHtml=done?`<span class="cf-date" data-di="${i}">${date?date.slice(5):'--'}</span>`:'';
-    return`<div class="cf-step ${done?'done-step':''}" data-ci="${i}"><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text">${s}</div>${dateHtml}<div class="cf-del" data-xi="${i}">✕</div></div>`;
+    const upBtn=i>0?`<div class="cf-mv" data-mv="${i}" data-dir="-1">↑</div>`:'<div class="cf-mv" style="opacity:0;pointer-events:none">↑</div>';
+    const dnBtn=i<steps.length-1?`<div class="cf-mv" data-mv="${i}" data-dir="1">↓</div>`:'<div class="cf-mv" style="opacity:0;pointer-events:none">↓</div>';
+    return`<div class="cf-step ${done?'done-step':''}" data-ci="${i}"><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text">${s}</div>${dateHtml}<div class="cf-arrows">${upBtn}${dnBtn}</div><div class="cf-del" data-xi="${i}">✕</div></div>`;
   }).join('');
   el.innerHTML=`<div class="tabs" id="cfTabs">${tabs}</div><div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem"><div class="cf-prog" style="flex:1;margin:0"><div class="cf-prog-fill" style="width:${pct}%"></div></div><span id="cfPctLabel" style="font-size:.5rem;color:var(--t3);white-space:nowrap">${doneSet.size}/${steps.length} (${pct}%)</span></div><div id="cfSteps">${stepHtml}</div><div style="display:flex;gap:.3rem;margin-top:.4rem"><input id="cfNewStep" placeholder="ステップを追加..." style="flex:1;background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:.3rem .5rem;color:var(--t1);font-size:.6rem;font-family:inherit;outline:none"><button id="cfAddBtn" style="padding:.3rem .6rem;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-size:.6rem;font-weight:600;cursor:pointer;font-family:inherit">＋</button></div>`;
   el.querySelectorAll('[data-cfi]').forEach(t=>t.addEventListener('click',()=>{cfActiveSong=+t.dataset.cfi;renderCompFlow();}));
   el.querySelectorAll('.cf-step').forEach(t=>t.addEventListener('click',e=>{
-    if(e.target.closest('.cf-date')||e.target.closest('.cf-del'))return;
+    if(e.target.closest('.cf-date')||e.target.closest('.cf-del')||e.target.closest('.cf-mv'))return;
     const i=+t.dataset.ci;
     if(doneSet.has(i)){doneSet.delete(i);delete cf.dates[i];}else{doneSet.add(i);cf.dates[i]=todayStr;}
     cf.done=[...doneSet];save();renderCompFlow();
   }));
   el.querySelectorAll('.cf-date').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();openCfDateEdit(d,+d.dataset.di,cf);}));
+  // リマップ共通関数（削除・移動で使用）
+  function cfRemap(oldDone,oldDates,mapFn){
+    const nd=new Set(),ndt={};
+    oldDone.forEach(idx=>{const ni=mapFn(idx);if(ni!=null)nd.add(ni);});
+    Object.keys(oldDates).forEach(k=>{const ni=mapFn(+k);if(ni!=null)ndt[ni]=oldDates[k];});
+    return{done:[...nd],dates:ndt};
+  }
   el.querySelectorAll('.cf-del').forEach(d=>d.addEventListener('click',e=>{
     e.stopPropagation();
     const i=+d.dataset.xi;
     cf.steps.splice(i,1);
-    // インデックスをリマップ
-    const newDone=new Set();const newDates={};
-    doneSet.forEach(idx=>{if(idx<i)newDone.add(idx);else if(idx>i)newDone.add(idx-1);});
-    Object.keys(cf.dates).forEach(k=>{const ki=+k;if(ki<i)newDates[ki]=cf.dates[k];else if(ki>i)newDates[ki-1]=cf.dates[k];});
-    cf.done=[...newDone];cf.dates=newDates;save();renderCompFlow();
+    const{done,dates}=cfRemap(doneSet,cf.dates,idx=>idx<i?idx:idx>i?idx-1:null);
+    cf.done=done;cf.dates=dates;save();renderCompFlow();
+  }));
+  el.querySelectorAll('.cf-mv').forEach(d=>d.addEventListener('click',e=>{
+    e.stopPropagation();
+    const i=+d.dataset.mv,dir=+d.dataset.dir,j=i+dir;
+    if(j<0||j>=steps.length)return;
+    [cf.steps[i],cf.steps[j]]=[cf.steps[j],cf.steps[i]];
+    const{done,dates}=cfRemap(doneSet,cf.dates,idx=>idx===i?j:idx===j?i:idx);
+    cf.done=done;cf.dates=dates;save();renderCompFlow();
   }));
   const addBtn=$('#cfAddBtn'),addInp=$('#cfNewStep');
   const doAdd=()=>{const txt=addInp.value.trim();if(!txt)return;cf.steps.push(txt);save();addInp.value='';renderCompFlow();};
