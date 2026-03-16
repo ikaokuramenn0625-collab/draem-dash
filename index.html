@@ -1104,7 +1104,19 @@ function renderSuggestions(){
 }
 
 // ── Comp Flow Section ──
-let cfActiveSong=0;
+function cfInitActiveSong(){
+  const songs=(DB.songs||[]).filter(s=>s.title);
+  if(!songs.length)return 0;
+  let best=0,bestDate='';
+  songs.forEach((s,i)=>{
+    const cf=DB.compFlow?.[s.title];
+    const dates=cf?.dates?Object.values(cf.dates):[];
+    const latest=dates.length?dates.reduce((a,b)=>a>b?a:b):'';
+    if(latest>bestDate){bestDate=latest;best=i;}
+  });
+  return best;
+}
+let cfActiveSong=cfInitActiveSong();
 function cfRemap(oldDone,oldDates,mapFn){
   const nd=new Set(),ndt={};
   oldDone.forEach(idx=>{const ni=mapFn(idx);if(ni!=null)nd.add(ni);});
