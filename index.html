@@ -13,7 +13,7 @@
 :root{--bg:#0D0906;--s1:rgba(255,255,255,.04);--s2:rgba(255,255,255,.07);--gold:#C4A059;--gl:#DFC07A;--gd:#8B6F47;--gdim:rgba(196,160,89,.15);--t1:#E8DDD0;--t2:#A89585;--t3:#6D5A4A;--grn:#5CB870;--red:#C45B5B}
 html{background:var(--bg);color:var(--t1);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans',sans-serif;-webkit-font-smoothing:antialiased;font-size:var(--fs,15px)}
 body{min-height:100dvh}
-.w{max-width:480px;margin:0 auto;padding:1.5rem 1.25rem 4rem}
+.w{max-width:480px;margin:0 auto;padding:calc(1.5rem + env(safe-area-inset-top)) 1.25rem calc(4rem + env(safe-area-inset-bottom))}
 .hdr{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.8rem}
 .logo{font-family:Georgia,serif;font-size:1.8rem;font-weight:700;background:linear-gradient(135deg,var(--gd),var(--gold),var(--gl));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:4px;vertical-align:middle;cursor:pointer}
