@@ -1154,19 +1154,18 @@ function renderCompFlow(){
     });
     handle.addEventListener('pointerup',e=>{
       if(dragIdx==null)return;
-      dragRow.classList.remove('cf-dragging');
+      const from=dragIdx;
+      dragIdx=null;
+      // cf-dragging を外す前に位置を確定
       const rows=[...stepsEl.querySelectorAll('.cf-step:not(.cf-dragging)')];
-      // ドロップ先のCI（挿入先の前の行のCI）を探す
       let insertBeforeCI=null;
       rows.forEach(r=>{r.classList.remove('cf-drop-here');});
       for(const r of rows){if(e.clientY<r.getBoundingClientRect().top+r.offsetHeight/2){insertBeforeCI=+r.dataset.ci;break;}}
+      dragRow.classList.remove('cf-dragging');dragRow=null;
       // splice後のインデックスに変換
-      const from=dragIdx;
-      let newIdx=rows.length; // デフォルト：末尾
+      let newIdx=rows.length;
       if(insertBeforeCI!==null) newIdx=insertBeforeCI<from?insertBeforeCI:insertBeforeCI-1;
-      dragIdx=null;dragRow=null;
       if(newIdx!==from){
-        // stepsを並べ替え
         const[moved]=cf.steps.splice(from,1);cf.steps.splice(newIdx,0,moved);
         const{done,dates}=cfRemap(cf.done,cf.dates,idx=>{
           if(idx===from)return newIdx;
