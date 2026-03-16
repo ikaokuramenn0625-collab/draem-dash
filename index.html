@@ -130,8 +130,9 @@ body{min-height:100dvh}
 .cf-date{font-size:.45rem;color:var(--t3);margin-left:auto;padding:.05rem .25rem;border-radius:3px;border:1px solid rgba(255,255,255,.1);cursor:pointer;white-space:nowrap;flex-shrink:0}
 .cf-date:hover{border-color:var(--gold);color:var(--gold)}
 .cf-del{font-size:.45rem;color:var(--t3);padding:.1rem .2rem;cursor:pointer;opacity:.4;flex-shrink:0}.cf-del:hover{opacity:1;color:var(--red)}
-.cf-arrows{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
-.cf-mv{font-size:.4rem;color:var(--t3);padding:0 .2rem;cursor:pointer;opacity:.4;line-height:1.2}.cf-mv:hover{opacity:1;color:var(--gold)}
+.cf-drag{font-size:.6rem;color:var(--t3);padding:0 .3rem;cursor:grab;opacity:.4;flex-shrink:0;touch-action:none}.cf-drag:hover{opacity:1}
+.cf-dragging{opacity:.4;background:var(--s2)!important}
+.cf-drop-here{border-top:2px solid var(--gold)!important}
 .tk-del{color:var(--t3);font-size:.55rem;padding:.1rem .25rem}
 @media(hover:none){.tk-del{opacity:.5}}
 .task-empty{text-align:center;padding:.8rem;color:var(--t3);font-size:.7rem;background:var(--s1);border-radius:8px;border:1px dashed rgba(255,255,255,.08)}
@@ -617,7 +618,7 @@ function calcInsights(){
 
 // ── Sleep parse helper (accepts "6:13" or "6.5" or "7") ──
 function parseSleep(v){if(v===''||v==null)return null;const s=String(v).trim();if(s.includes(':')){const[h,m]=s.split(':');const val=+(h||0)+(+(m||0))/60;return isNaN(val)?null:+val.toFixed(2);}const n=+s;return isNaN(n)?null:n;}
-function formatSleepInput(el){const digits=el.value.replace(/\D/g,'').slice(0,4);if(digits.length>=3){el.value=digits.slice(0,-2)+':'+digits.slice(-2);}else{el.value=digits;}}
+function formatSleepInput(el){const digits=el.value.replace(/\D/g,'').slice(0,4);if(digits.length===4){el.value=digits.slice(0,2)+':'+digits.slice(2);}else if(digits.length===3){el.value=digits.slice(0,1)+':'+digits.slice(1);}else{el.value=digits;}}
 
 // ── Composition Flow ──
 const CF_STEPS=['リファレンス選定','Logicに落とす','コード進行・展開を決める','ドラム・ベースを仮入れ','歌メロを入れる','ドラム・ベースをブラッシュアップ','音探し（リファレンス参考）','メロディ系仮打ち込み','コード系仮打ち込み','テクスチャ仮入れ','fx仮入れ','宮舞モカに歌わせる','仮入れをブラッシュアップ・アヴォイドノート解消','fx追加','Inter系エフェクト','Outer系エフェクト','通し①：違和感探し→修正','通し②：違和感探し→修正','通し③：違和感探し→修正','通し④：違和感探し→修正','通し⑤：違和感探し→修正'];
@@ -1093,7 +1094,12 @@ function renderSuggestions(){
 
 // ── Comp Flow Section ──
 let cfActiveSong=0;
-function cfGetSteps(cf){return cf.steps&&cf.steps.length?cf.steps:[...CF_STEPS];}
+function cfRemap(oldDone,oldDates,mapFn){
+  const nd=new Set(),ndt={};
+  oldDone.forEach(idx=>{const ni=mapFn(idx);if(ni!=null)nd.add(ni);});
+  Object.keys(oldDates).forEach(k=>{const ni=mapFn(+k);if(ni!=null)ndt[ni]=oldDates[k];});
+  return{done:[...nd],dates:ndt};
+}
 function renderCompFlow(){
   const el=$('#compFlowSection');if(!el)return;
   const songs=(DB.songs||[]).filter(s=>s.title);
@@ -1113,41 +1119,65 @@ function renderCompFlow(){
     const done=doneSet.has(i);
     const date=cf.dates[i]||'';
     const dateHtml=done?`<span class="cf-date" data-di="${i}">${date?date.slice(5):'--'}</span>`:'';
-    const upBtn=i>0?`<div class="cf-mv" data-mv="${i}" data-dir="-1">↑</div>`:'<div class="cf-mv" style="opacity:0;pointer-events:none">↑</div>';
-    const dnBtn=i<steps.length-1?`<div class="cf-mv" data-mv="${i}" data-dir="1">↓</div>`:'<div class="cf-mv" style="opacity:0;pointer-events:none">↓</div>';
-    return`<div class="cf-step ${done?'done-step':''}" data-ci="${i}"><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text">${s}</div>${dateHtml}<div class="cf-arrows">${upBtn}${dnBtn}</div><div class="cf-del" data-xi="${i}">✕</div></div>`;
+    return`<div class="cf-step ${done?'done-step':''}" data-ci="${i}"><div class="cf-drag" data-drag="${i}">☰</div><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text">${s}</div>${dateHtml}<div class="cf-del" data-xi="${i}">✕</div></div>`;
   }).join('');
   el.innerHTML=`<div class="tabs" id="cfTabs">${tabs}</div><div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem"><div class="cf-prog" style="flex:1;margin:0"><div class="cf-prog-fill" style="width:${pct}%"></div></div><span id="cfPctLabel" style="font-size:.5rem;color:var(--t3);white-space:nowrap">${doneSet.size}/${steps.length} (${pct}%)</span></div><div id="cfSteps">${stepHtml}</div><div style="display:flex;gap:.3rem;margin-top:.4rem"><input id="cfNewStep" placeholder="ステップを追加..." style="flex:1;background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:.3rem .5rem;color:var(--t1);font-size:.6rem;font-family:inherit;outline:none"><button id="cfAddBtn" style="padding:.3rem .6rem;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-size:.6rem;font-weight:600;cursor:pointer;font-family:inherit">＋</button></div>`;
   el.querySelectorAll('[data-cfi]').forEach(t=>t.addEventListener('click',()=>{cfActiveSong=+t.dataset.cfi;renderCompFlow();}));
   el.querySelectorAll('.cf-step').forEach(t=>t.addEventListener('click',e=>{
-    if(e.target.closest('.cf-date')||e.target.closest('.cf-del')||e.target.closest('.cf-mv'))return;
+    if(e.target.closest('.cf-date')||e.target.closest('.cf-del')||e.target.closest('.cf-drag'))return;
     const i=+t.dataset.ci;
     if(doneSet.has(i)){doneSet.delete(i);delete cf.dates[i];}else{doneSet.add(i);cf.dates[i]=todayStr;}
     cf.done=[...doneSet];save();renderCompFlow();
   }));
   el.querySelectorAll('.cf-date').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();openCfDateEdit(d,+d.dataset.di,cf);}));
-  // リマップ共通関数（削除・移動で使用）
-  function cfRemap(oldDone,oldDates,mapFn){
-    const nd=new Set(),ndt={};
-    oldDone.forEach(idx=>{const ni=mapFn(idx);if(ni!=null)nd.add(ni);});
-    Object.keys(oldDates).forEach(k=>{const ni=mapFn(+k);if(ni!=null)ndt[ni]=oldDates[k];});
-    return{done:[...nd],dates:ndt};
-  }
   el.querySelectorAll('.cf-del').forEach(d=>d.addEventListener('click',e=>{
-    e.stopPropagation();
-    const i=+d.dataset.xi;
-    cf.steps.splice(i,1);
+    e.stopPropagation();const i=+d.dataset.xi;cf.steps.splice(i,1);
     const{done,dates}=cfRemap(doneSet,cf.dates,idx=>idx<i?idx:idx>i?idx-1:null);
     cf.done=done;cf.dates=dates;save();renderCompFlow();
   }));
-  el.querySelectorAll('.cf-mv').forEach(d=>d.addEventListener('click',e=>{
-    e.stopPropagation();
-    const i=+d.dataset.mv,dir=+d.dataset.dir,j=i+dir;
-    if(j<0||j>=steps.length)return;
-    [cf.steps[i],cf.steps[j]]=[cf.steps[j],cf.steps[i]];
-    const{done,dates}=cfRemap(doneSet,cf.dates,idx=>idx===i?j:idx===j?i:idx);
-    cf.done=done;cf.dates=dates;save();renderCompFlow();
-  }));
+  // ── Drag & Drop (pointer events, touch対応) ──
+  const stepsEl=el.querySelector('#cfSteps');
+  let dragIdx=null,dragEl=null;
+  stepsEl.addEventListener('pointerdown',e=>{
+    const handle=e.target.closest('.cf-drag');if(!handle)return;
+    e.preventDefault();
+    dragIdx=+handle.dataset.drag;
+    dragEl=handle.closest('.cf-step');
+    dragEl.classList.add('cf-dragging');
+    stepsEl.setPointerCapture(e.pointerId);
+  });
+  stepsEl.addEventListener('pointermove',e=>{
+    if(dragIdx==null)return;e.preventDefault();
+    stepsEl.querySelectorAll('.cf-drop-here').forEach(r=>r.classList.remove('cf-drop-here'));
+    const rows=[...stepsEl.querySelectorAll('.cf-step:not(.cf-dragging)')];
+    let target=rows[rows.length-1];
+    for(const r of rows){if(e.clientY<r.getBoundingClientRect().top+r.offsetHeight/2){target=r;break;}}
+    if(target)target.classList.add('cf-drop-here');
+  });
+  stepsEl.addEventListener('pointerup',e=>{
+    if(dragIdx==null)return;
+    dragEl.classList.remove('cf-dragging');
+    const rows=[...stepsEl.querySelectorAll('.cf-step:not(.cf-dragging)')];
+    let newIdx=steps.length-1;
+    for(let ri=0;ri<rows.length;ri++){
+      if(e.clientY<rows[ri].getBoundingClientRect().top+rows[ri].offsetHeight/2){
+        newIdx=+rows[ri].dataset.ci;if(newIdx>dragIdx)newIdx--;break;
+      }
+    }
+    stepsEl.querySelectorAll('.cf-drop-here').forEach(r=>r.classList.remove('cf-drop-here'));
+    if(newIdx!==dragIdx){
+      const[moved]=cf.steps.splice(dragIdx,1);cf.steps.splice(newIdx,0,moved);
+      const from=dragIdx,to=newIdx;
+      const{done,dates}=cfRemap(doneSet,cf.dates,idx=>{
+        if(idx===from)return to;
+        if(from<to&&idx>from&&idx<=to)return idx-1;
+        if(from>to&&idx>=to&&idx<from)return idx+1;
+        return idx;
+      });
+      cf.done=done;cf.dates=dates;save();
+    }
+    dragIdx=null;dragEl=null;renderCompFlow();
+  });
   const addBtn=$('#cfAddBtn'),addInp=$('#cfNewStep');
   const doAdd=()=>{const txt=addInp.value.trim();if(!txt)return;cf.steps.push(txt);save();addInp.value='';renderCompFlow();};
   addBtn.addEventListener('click',doAdd);
