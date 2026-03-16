@@ -310,7 +310,7 @@ const DEF_SONGS=[
   {char:'結',title:null,status:'planned',date:null}
 ];
 const STAGES=['作曲','アレンジ','MIX','ボーカル','MV','リリース'];
-const CATS={song:'🎵作曲',mix:'🎛️MIX',mv:'🎬MV',vocal:'🎤ボーカル',sns:'📱SNS',release:'🚀リリース',learn:'📖学習',jbg:'🎓JBG',work:'💼コンサル',life:'🏠生活'};
+const CATS={song:'🎵作曲',mix:'🎛️MIX',mv:'🎬MV',vocal:'🎤ボーカル',sns:'📱SNS',release:'🚀リリース',learn:'📖学習',jbg:'🎓JBG',work:'💼コンサル',life:'🏠生活',health:'🏃健康'};
 const DEF_GOALS={weeklyHours:5,yearSongs:10,subTarget:1000,playTarget:50000,revenueTarget:500000};
 const DREAM_DATE=new Date('2029-02-11');
 const QUOTES=[
@@ -636,6 +636,11 @@ function processRecurring(){
     }
   });
   if(created)save();
+}
+// 水泳リピートタスクの初期登録（未登録の場合のみ）
+if(!(DB.recurring||[]).find(r=>r.text==='🏊 水泳（夕食前）')){
+  DB.recurring.push({text:'🏊 水泳（夕食前）',cat:'🏃健康',interval:'daily',days:[2,4],lastCreated:''});
+  save();
 }
 processRecurring();
 
