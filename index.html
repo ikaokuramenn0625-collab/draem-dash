@@ -710,6 +710,16 @@ function mergeDB(remote){
   const localRefDates=new Set((local.reflections||[]).map(r=>r.date));
   (remote.reflections||[]).forEach(r=>{if(!localRefDates.has(r.date)){(local.reflections=local.reflections||[]).push(r);changed=true;}});
 
+  // Merge compFlow: per song, keep whichever has more done steps
+  if(remote.compFlow&&typeof remote.compFlow==='object'){
+    if(!local.compFlow)local.compFlow={};
+    Object.keys(remote.compFlow).forEach(key=>{
+      const lc=local.compFlow[key],rc=remote.compFlow[key];
+      if(!lc){local.compFlow[key]=rc;changed=true;}
+      else if((rc?.done?.length||0)>(lc?.done?.length||0)){local.compFlow[key]=rc;changed=true;}
+    });
+  }
+
   return changed;
 }
 
