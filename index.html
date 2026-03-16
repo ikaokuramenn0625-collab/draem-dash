@@ -129,6 +129,7 @@ body{min-height:100dvh}
 .cf-prog{height:4px;background:var(--s2);border-radius:2px;margin:.3rem 0}.cf-prog-fill{height:100%;background:var(--gl);border-radius:2px;transition:width .3s}
 .cf-date{font-size:.45rem;color:var(--t3);margin-left:auto;padding:.05rem .25rem;border-radius:3px;border:1px solid rgba(255,255,255,.1);cursor:pointer;white-space:nowrap;flex-shrink:0}
 .cf-date:hover{border-color:var(--gold);color:var(--gold)}
+.cf-del{font-size:.45rem;color:var(--t3);padding:.1rem .2rem;cursor:pointer;opacity:.4;flex-shrink:0}.cf-del:hover{opacity:1;color:var(--red)}
 .tk-del{color:var(--t3);font-size:.55rem;padding:.1rem .25rem}
 @media(hover:none){.tk-del{opacity:.5}}
 .task-empty{text-align:center;padding:.8rem;color:var(--t3);font-size:.7rem;background:var(--s1);border-radius:8px;border:1px dashed rgba(255,255,255,.08)}
@@ -1090,6 +1091,7 @@ function renderSuggestions(){
 
 // ── Comp Flow Section ──
 let cfActiveSong=0;
+function cfGetSteps(cf){return cf.steps&&cf.steps.length?cf.steps:[...CF_STEPS];}
 function renderCompFlow(){
   const el=$('#compFlowSection');if(!el)return;
   const songs=(DB.songs||[]).filter(s=>s.title);
@@ -1097,37 +1099,50 @@ function renderCompFlow(){
   if(cfActiveSong>=songs.length)cfActiveSong=0;
   const song=songs[cfActiveSong];
   const key=song.title;
-  if(!DB.compFlow[key])DB.compFlow[key]={done:[],dates:{}};
+  if(!DB.compFlow[key])DB.compFlow[key]={steps:[...CF_STEPS],done:[],dates:{}};
   const cf=DB.compFlow[key];
   if(!cf.dates)cf.dates={};
+  if(!cf.steps||!cf.steps.length)cf.steps=[...CF_STEPS];
+  const steps=cf.steps;
   const doneSet=new Set(cf.done);
-  const pct=Math.round(doneSet.size/CF_STEPS.length*100);
+  const pct=Math.round(doneSet.size/steps.length*100);
   const tabs=songs.map((s,i)=>`<span class="tab ${i===cfActiveSong?'active':''}" data-cfi="${i}" style="font-size:.5rem">${s.title}</span>`).join('');
-  const stepHtml=CF_STEPS.map((s,i)=>{
+  const stepHtml=steps.map((s,i)=>{
     const done=doneSet.has(i);
     const date=cf.dates[i]||'';
-    const dateHtml=done?`<span class="cf-date" data-di="${i}" title="タップして日付編集">${date?date.slice(5):'--'}</span>`:'';
-    return`<div class="cf-step ${done?'done-step':''}" data-ci="${i}"><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text">${s}</div>${dateHtml}</div>`;
+    const dateHtml=done?`<span class="cf-date" data-di="${i}">${date?date.slice(5):'--'}</span>`:'';
+    return`<div class="cf-step ${done?'done-step':''}" data-ci="${i}"><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text">${s}</div>${dateHtml}<div class="cf-del" data-xi="${i}">✕</div></div>`;
   }).join('');
-  el.innerHTML=`<div class="tabs" id="cfTabs">${tabs}</div><div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem"><div class="cf-prog" style="flex:1;margin:0"><div class="cf-prog-fill" style="width:${pct}%"></div></div><span id="cfPctLabel" style="font-size:.5rem;color:var(--t3);white-space:nowrap">${doneSet.size}/${CF_STEPS.length} (${pct}%)</span></div><div id="cfSteps">${stepHtml}</div>`;
+  el.innerHTML=`<div class="tabs" id="cfTabs">${tabs}</div><div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem"><div class="cf-prog" style="flex:1;margin:0"><div class="cf-prog-fill" style="width:${pct}%"></div></div><span id="cfPctLabel" style="font-size:.5rem;color:var(--t3);white-space:nowrap">${doneSet.size}/${steps.length} (${pct}%)</span></div><div id="cfSteps">${stepHtml}</div><div style="display:flex;gap:.3rem;margin-top:.4rem"><input id="cfNewStep" placeholder="ステップを追加..." style="flex:1;background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:.3rem .5rem;color:var(--t1);font-size:.6rem;font-family:inherit;outline:none"><button id="cfAddBtn" style="padding:.3rem .6rem;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-size:.6rem;font-weight:600;cursor:pointer;font-family:inherit">＋</button></div>`;
   el.querySelectorAll('[data-cfi]').forEach(t=>t.addEventListener('click',()=>{cfActiveSong=+t.dataset.cfi;renderCompFlow();}));
   el.querySelectorAll('.cf-step').forEach(t=>t.addEventListener('click',e=>{
-    if(e.target.closest('.cf-date'))return;
+    if(e.target.closest('.cf-date')||e.target.closest('.cf-del'))return;
     const i=+t.dataset.ci;
-    if(doneSet.has(i)){doneSet.delete(i);delete cf.dates[i];t.classList.remove('done-step');t.querySelector('.cf-date')?.remove();}
-    else{doneSet.add(i);cf.dates[i]=todayStr;t.classList.add('done-step');const d=document.createElement('span');d.className='cf-date';d.dataset.di=i;d.title='タップして日付編集';d.textContent=todayStr.slice(5);t.appendChild(d);d.addEventListener('click',e2=>{e2.stopPropagation();openCfDateEdit(d,i,cf);});}
-    cf.done=[...doneSet];save();
-    el.querySelector('.cf-prog-fill').style.width=Math.round(doneSet.size/CF_STEPS.length*100)+'%';
-    el.querySelector('#cfPctLabel').textContent=`${doneSet.size}/${CF_STEPS.length} (${Math.round(doneSet.size/CF_STEPS.length*100)}%)`;
+    if(doneSet.has(i)){doneSet.delete(i);delete cf.dates[i];}else{doneSet.add(i);cf.dates[i]=todayStr;}
+    cf.done=[...doneSet];save();renderCompFlow();
   }));
   el.querySelectorAll('.cf-date').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();openCfDateEdit(d,+d.dataset.di,cf);}));
+  el.querySelectorAll('.cf-del').forEach(d=>d.addEventListener('click',e=>{
+    e.stopPropagation();
+    const i=+d.dataset.xi;
+    cf.steps.splice(i,1);
+    // インデックスをリマップ
+    const newDone=new Set();const newDates={};
+    doneSet.forEach(idx=>{if(idx<i)newDone.add(idx);else if(idx>i)newDone.add(idx-1);});
+    Object.keys(cf.dates).forEach(k=>{const ki=+k;if(ki<i)newDates[ki]=cf.dates[k];else if(ki>i)newDates[ki-1]=cf.dates[k];});
+    cf.done=[...newDone];cf.dates=newDates;save();renderCompFlow();
+  }));
+  const addBtn=$('#cfAddBtn'),addInp=$('#cfNewStep');
+  const doAdd=()=>{const txt=addInp.value.trim();if(!txt)return;cf.steps.push(txt);save();addInp.value='';renderCompFlow();};
+  addBtn.addEventListener('click',doAdd);
+  addInp.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd();});
 }
 function openCfDateEdit(el,i,cf){
   const cur=cf.dates[i]||todayStr;
   const inp=document.createElement('input');
   inp.type='date';inp.value=cur;inp.style.cssText='font-size:.5rem;background:var(--s2);border:1px solid var(--gold);border-radius:4px;color:var(--t1);padding:.1rem;width:6.5rem';
   el.replaceWith(inp);inp.focus();
-  const done=v=>{cf.dates[i]=inp.value||cur;save();renderCompFlow();};
+  const done=()=>{cf.dates[i]=inp.value||cur;save();renderCompFlow();};
   inp.addEventListener('change',done);inp.addEventListener('blur',done);
 }
 
