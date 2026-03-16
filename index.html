@@ -120,6 +120,13 @@ body{min-height:100dvh}
 .tk-due{font-weight:600;padding:.05rem .2rem;border-radius:3px}
 .tk-due.safe{color:var(--grn)}.tk-due.warn{color:#D4A83A;background:rgba(212,168,58,.1)}
 .tk-due.urgent{color:var(--red);background:rgba(196,91,91,.12)}.tk-due.overdue{color:#fff;background:var(--red)}
+.tk-edit{color:var(--t3);font-size:.5rem;padding:.1rem .2rem;opacity:.5;flex-shrink:0}.tk-rec{color:var(--gold);font-size:.45rem}
+.cf-step{display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.cf-step.done-step .cf-text{text-decoration:line-through;opacity:.4}
+.cf-ck{width:14px;height:14px;border:1.5px solid var(--t3);border-radius:3px;flex-shrink:0;cursor:pointer;transition:background .1s}
+.cf-step.done-step .cf-ck{background:var(--grn);border-color:var(--grn)}
+.cf-text{font-size:.65rem;flex:1;line-height:1.3}.cf-num{font-size:.45rem;color:var(--t3);width:1.2rem;flex-shrink:0}
+.cf-prog{height:4px;background:var(--s2);border-radius:2px;margin:.3rem 0}.cf-prog-fill{height:100%;background:var(--gl);border-radius:2px;transition:width .3s}
 .tk-del{color:var(--t3);font-size:.55rem;padding:.1rem .25rem}
 @media(hover:none){.tk-del{opacity:.5}}
 .task-empty{text-align:center;padding:.8rem;color:var(--t3);font-size:.7rem;background:var(--s1);border-radius:8px;border:1px dashed rgba(255,255,255,.08)}
@@ -420,6 +427,7 @@ if(!DB.timerTotal)DB.timerTotal=0;
 if(!DB.songs)DB.songs=JSON.parse(JSON.stringify(DEF_SONGS));
 if(!DB.goals)DB.goals={...DEF_GOALS};
 if(!DB.recurring)DB.recurring=[];
+if(!DB.compFlow)DB.compFlow={};
 if(!DB.reflections)DB.reflections=[];
 if(!DB.bestStreak)DB.bestStreak=0;
 if(!DB.kpiLog)DB.kpiLog=[];           // [{date,subscribers,total_plays,revenue,songs}]
@@ -598,12 +606,22 @@ function calcInsights(){
   return insights;
 }
 
+// ── Sleep parse helper (accepts "6:13" or "6.5" or "7") ──
+function parseSleep(v){if(v===''||v==null)return null;const s=String(v).trim();if(s.includes(':')){const[h,m]=s.split(':');const val=+(h||0)+(+(m||0))/60;return isNaN(val)?null:+val.toFixed(2);}const n=+s;return isNaN(n)?null:n;}
+
+// ── Composition Flow ──
+const CF_STEPS=['リファレンス選定','Logicに落とす','コード進行・展開を決める','ドラム・ベースを仮入れ','歌メロを入れる','ドラム・ベースをブラッシュアップ','音探し（リファレンス参考）','メロディ系仮打ち込み','コード系仮打ち込み','テクスチャ仮入れ','fx仮入れ','宮舞モカに歌わせる','仮入れをブラッシュアップ・アヴォイドノート解消','fx追加','Inter系エフェクト','Outer系エフェクト','通し①：違和感探し→修正','通し②：違和感探し→修正','通し③：違和感探し→修正','通し④：違和感探し→修正','通し⑤：違和感探し→修正'];
+if(!DB.compFlow)DB.compFlow={};
+
 // ── Recurring Task Engine ──
 function processRecurring(){
   const rc=DB.recurring||[];
   let created=false;
+  const todayDow=today.getDay();
   rc.forEach(r=>{
     if(!r.text||!r.interval)return;
+    // 曜日指定がある場合は今日が対象外ならスキップ
+    if(r.days&&r.days.length>0&&!r.days.includes(todayDow))return;
     const last=r.lastCreated||'';
     const shouldCreate=(r.interval==='daily'&&last<todayStr)||(r.interval==='weekly'&&(!last||Math.floor((today-new Date(last))/864e5)>=7));
     if(shouldCreate){
@@ -1127,7 +1145,7 @@ function render(){
   // Reflection bar
   const todayRef=(DB.reflections||[]).find(r=>r.date===todayStr);
   const moods=['😤','😐','🙂','😊','🔥'];
-  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="number" min="0" max="24" step="0.5" value="${todayRef?.sleep??''}" placeholder="—" style="width:2.2rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
+  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="decimal" value="${todayRef?.sleep??''}" placeholder="6:13" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
   $('#reflectBar').querySelectorAll('.reflect-btn').forEach(el=>el.addEventListener('click',()=>{
     const mood=+el.dataset.mood;
     const existing=(DB.reflections||[]).findIndex(r=>r.date===todayStr);
@@ -1137,7 +1155,7 @@ function render(){
   }));
   const sleepEl=$('#sleepInput');
   if(sleepEl)sleepEl.addEventListener('change',()=>{
-    const v=sleepEl.value!==''?+sleepEl.value:null;
+    const v=parseSleep(sleepEl.value);
     const r=(DB.reflections||[]).find(r=>r.date===todayStr);
     if(r)r.sleep=v;
     else DB.reflections.push({date:todayStr,mood:null,note:'',sleep:v});
@@ -1204,9 +1222,10 @@ function render(){
 
   const list=filtered();
   if(!list.length){$('#tasks').innerHTML=`<div class="task-empty">${curTab==='done'?'完了タスクなし':'タスクを追加して目標に向かおう'}</div>`;}
-  else{$('#tasks').innerHTML=list.map(t=>`<div class="task ${t.done?'done':''}" data-id="${t.id}"><div class="tk-ck"></div><div class="tk-body"><div class="tk-text">${esc(t.text)}</div><div class="tk-meta">${t.cat?'<span class="tk-cat">'+CATS[t.cat]+'</span>':''}${dueBadge(t.due)}${t.doneDate?'<span>✓'+t.doneDate.slice(5)+'</span>':''}</div></div><div class="tk-del" data-d="${t.id}">✕</div></div>`).join('');
-  $('#tasks').querySelectorAll('.task').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.tk-del'))toggle(+el.dataset.id);}));
-  $('#tasks').querySelectorAll('.tk-del').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();del(+el.dataset.d);}));}
+  else{$('#tasks').innerHTML=list.map(t=>`<div class="task ${t.done?'done':''}" data-id="${t.id}"><div class="tk-ck"></div><div class="tk-body"><div class="tk-text">${esc(t.text)}${t.recurring?'<span class="tk-rec"> 🔁</span>':''}</div><div class="tk-meta">${t.cat?'<span class="tk-cat">'+CATS[t.cat]+'</span>':''}${dueBadge(t.due)}${t.doneDate?'<span>✓'+t.doneDate.slice(5)+'</span>':''}</div></div><div class="tk-edit" data-e="${t.id}">✏️</div><div class="tk-del" data-d="${t.id}">✕</div></div>`).join('');
+  $('#tasks').querySelectorAll('.task').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.tk-del')&&!e.target.closest('.tk-edit'))toggle(+el.dataset.id);}));
+  $('#tasks').querySelectorAll('.tk-del').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();del(+el.dataset.d);}));
+  $('#tasks').querySelectorAll('.tk-edit').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openModal('taskEdit',+el.dataset.e);}));}
 
   // Activity Log
   renderLog();
@@ -1321,15 +1340,42 @@ function openModal(type,extra){
       DB.goals={weeklyHours:+$('#gWH').value||5,yearSongs:+$('#gYS').value||10,subTarget:+$('#gSub').value||1000,playTarget:+$('#gPlay').value||50000,revenueTarget:+$('#gRev').value||500000};
       save();render();$('#modalBg').classList.remove('show');
     };
+  }else if(type==='taskEdit'){
+    const t=DB.tasks.find(x=>x.id===arg);if(!t)return;
+    const catOpts2=TCATS.map(c=>`<option value="${c}" ${c===t.cat?'selected':''}>${c}</option>`).join('');
+    const sel='width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.7rem;font-family:inherit';
+    $('#mTitle').textContent='タスクを編集';
+    $('#mFields').innerHTML=`<div class="mf"><label>タスク名</label><input id="etText" value="${esc(t.text)}"></div><div class="mf"><label>カテゴリ</label><select id="etCat" style="${sel}">${catOpts2}</select></div><div class="mf"><label>期限</label><input type="date" id="etDue" value="${t.due||''}"></div>${t.recurring?`<div style="font-size:.5rem;color:var(--t3);margin-top:.4rem">🔁 リピートタスク — <span id="etStopRc" style="color:var(--red);cursor:pointer;text-decoration:underline">リピートを停止</span></div>`:''}`;
+    $('#mSave').onclick=()=>{const txt=$('#etText').value.trim();if(txt)t.text=txt;t.cat=$('#etCat').value;t.due=$('#etDue').value;save();render();$('#modalBg').classList.remove('show');};
+    setTimeout(()=>{const sr=$('#etStopRc');if(sr)sr.addEventListener('click',()=>{DB.recurring=(DB.recurring||[]).filter(r=>r.text!==t.text);t.recurring=false;save();render();$('#modalBg').classList.remove('show');});},50);
+  }else if(type==='compFlow'){
+    const songs=(DB.songs||[]).filter(s=>s.title);
+    const songIdx=arg!=null?arg:0;
+    const song=songs[songIdx]||{title:'(曲未設定)'};
+    const key=song.title;
+    if(!DB.compFlow[key])DB.compFlow[key]={done:[]};
+    const cf=DB.compFlow[key];
+    const doneSet=new Set(cf.done);
+    const pct=Math.round(doneSet.size/CF_STEPS.length*100);
+    const songTabs=songs.map((s,i)=>`<span style="cursor:pointer;padding:.15rem .35rem;border-radius:4px;font-size:.5rem;background:${i===songIdx?'var(--gdim)':'var(--s1)'};color:${i===songIdx?'var(--gold)':'var(--t3)'};border:1px solid ${i===songIdx?'var(--gold)':'transparent'}" data-si="${i}">${s.title}</span>`).join('');
+    $('#mTitle').textContent='作曲フロー';
+    $('#mFields').innerHTML=`<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.4rem">${songTabs}</div><div class="cf-prog"><div class="cf-prog-fill" style="width:${pct}%"></div></div><div style="font-size:.5rem;color:var(--t3);margin-bottom:.4rem">${doneSet.size} / ${CF_STEPS.length} ステップ完了 (${pct}%)</div>${CF_STEPS.map((s,i)=>`<div class="cf-step ${doneSet.has(i)?'done-step':''}" data-ci="${i}"><div class="cf-ck"></div><div class="cf-num">${i+1}</div><div class="cf-text">${s}</div></div>`).join('')}`;
+    $('#mSave').onclick=()=>{save();$('#modalBg').classList.remove('show');};
+    setTimeout(()=>{
+      $('#mFields').querySelectorAll('[data-si]').forEach(el=>el.addEventListener('click',()=>{save();openModal('compFlow',+el.dataset.si);}));
+      $('#mFields').querySelectorAll('.cf-step').forEach(el=>el.addEventListener('click',()=>{const i=+el.dataset.ci;if(doneSet.has(i)){doneSet.delete(i);el.classList.remove('done-step');}else{doneSet.add(i);el.classList.add('done-step');}cf.done=[...doneSet];save();}));
+    },50);
   }else if(type==='recurring'){
     const rc=DB.recurring||[];
     const catOpts=TCATS.map(c=>`<option value="${c}">${c}</option>`).join('');
-    let listHtml=rc.length?rc.map((r,i)=>`<div class="rc-item"><div class="rc-text">${r.text}</div><div class="rc-int">${r.interval==='daily'?'毎日':'毎週'}</div><div class="rc-del" data-ri="${i}">✕</div></div>`).join(''):'<div style="font-size:.5rem;color:var(--t3);padding:.3rem 0">まだ設定なし</div>';
+    const dowLabels=['日','月','火','水','木','金','土'];
+    let listHtml=rc.length?rc.map((r,i)=>{const dow=r.days&&r.days.length<7?r.days.map(d=>dowLabels[d]).join(''):'毎';return`<div class="rc-item"><div class="rc-text">${r.text}</div><div class="rc-int">${r.interval==='daily'?'毎日':'毎週'}${r.interval==='weekly'&&r.days?.length?'('+r.days.map(d=>dowLabels[d]).join('')+')':''}</div><div class="rc-del" data-ri="${i}">✕</div></div>`;}).join(''):'<div style="font-size:.5rem;color:var(--t3);padding:.3rem 0">まだ設定なし</div>';
+    const dowCheckboxes=dowLabels.map((d,i)=>`<label style="font-size:.5rem;display:flex;flex-direction:column;align-items:center;gap:.15rem;cursor:pointer"><input type="checkbox" name="rcDay" value="${i}" checked style="accent-color:var(--gold)">${d}</label>`).join('');
     $('#mTitle').textContent='リピートタスク';
-    $('#mFields').innerHTML=`${listHtml}<div style="border-top:1px solid rgba(255,255,255,.06);margin:.4rem 0;padding-top:.4rem"><div class="mf"><label>タスク名</label><input id="rcText" placeholder="例: ボーカル練習"></div><div style="display:flex;gap:.4rem"><div class="mf" style="flex:1"><label>カテゴリ</label><select id="rcCat" style="width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.7rem;font-family:inherit">${catOpts}</select></div><div class="mf" style="flex:1"><label>頻度</label><select id="rcInt" style="width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.7rem;font-family:inherit"><option value="daily">毎日</option><option value="weekly">毎週</option></select></div></div></div>`;
+    $('#mFields').innerHTML=`${listHtml}<div style="border-top:1px solid rgba(255,255,255,.06);margin:.4rem 0;padding-top:.4rem"><div class="mf"><label>タスク名</label><input id="rcText" placeholder="例: ボーカル練習"></div><div style="display:flex;gap:.4rem"><div class="mf" style="flex:1"><label>カテゴリ</label><select id="rcCat" style="width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.7rem;font-family:inherit">${catOpts}</select></div><div class="mf" style="flex:1"><label>頻度</label><select id="rcInt" style="width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.35rem;color:var(--t1);font-size:.7rem;font-family:inherit"><option value="daily">毎日</option><option value="weekly">毎週</option></select></div></div><div class="mf"><label>曜日（毎日の除外・毎週の指定）</label><div style="display:flex;gap:.5rem;margin-top:.2rem">${dowCheckboxes}</div></div></div>`;
     $('#mSave').onclick=()=>{
       const text=$('#rcText').value.trim();
-      if(text){DB.recurring.push({text,cat:$('#rcCat').value,interval:$('#rcInt').value,lastCreated:''});processRecurring();}
+      if(text){const days=[...document.querySelectorAll('[name="rcDay"]:checked')].map(el=>+el.value);DB.recurring.push({text,cat:$('#rcCat').value,interval:$('#rcInt').value,days,lastCreated:''});processRecurring();}
       save();render();$('#modalBg').classList.remove('show');
     };
     setTimeout(()=>{$('#mFields').querySelectorAll('.rc-del').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();DB.recurring.splice(+el.dataset.ri,1);save();openModal('recurring');}));},50);
@@ -1390,12 +1436,12 @@ function openModal(type,extra){
       <div class="mf"><label>メモ</label><input id="reflectNote" placeholder="今日の一言..." value="${esc(existingRef?.note||'')}"></div>
       <div class="mf" style="display:flex;align-items:center;gap:.5rem">
         <label style="flex:1">睡眠時間</label>
-        <input id="reflectSleep" type="number" min="0" max="24" step="0.5" placeholder="時間" value="${existingRef?.sleep??''}" style="width:4rem;text-align:center">
+        <input id="reflectSleep" type="text" inputmode="decimal" placeholder="6:13" value="${existingRef?.sleep??''}" style="width:4rem;text-align:center">
         <span style="font-size:.55rem;color:var(--t3)">h</span>
       </div>`;
     $('#mSave').onclick=()=>{
       const note=$('#reflectNote').value;
-      const sleep=$('#reflectSleep').value!==''?+$('#reflectSleep').value:null;
+      const sleep=parseSleep($('#reflectSleep').value);
       const r=(DB.reflections||[]).find(r=>r.date===todayStr);
       if(r){r.note=note;r.sleep=sleep;}
       save();render();$('#modalBg').classList.remove('show');
@@ -1418,6 +1464,7 @@ function openModal(type,extra){
       <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
         <button id="btnGoals" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🎯 目標設定</button>
         <button id="btnRecurring" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🔁 リピートタスク</button>
+        <button id="btnCompFlow" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🎵 作曲フロー</button>
       </div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">BACKUP / RESTORE</div>
       <div style="font-size:.48rem;color:var(--t3);margin-bottom:.35rem">現在: タスク ${taskCount}件 / ログ ${logCount}件</div>
@@ -1437,6 +1484,7 @@ function openModal(type,extra){
       const fi=$('#fileImport');if(fi)fi.addEventListener('change',e=>{if(e.target.files[0])importData(e.target.files[0]);});
       const bg=$('#btnGoals');if(bg)bg.addEventListener('click',()=>{$('#modalBg').classList.remove('show');setTimeout(()=>openModal('goals'),100);});
       const br=$('#btnRecurring');if(br)br.addEventListener('click',()=>{$('#modalBg').classList.remove('show');setTimeout(()=>openModal('recurring'),100);});
+      const bcf=$('#btnCompFlow');if(bcf)bcf.addEventListener('click',()=>{$('#modalBg').classList.remove('show');setTimeout(()=>openModal('compFlow',0),100);});
     },50);
   }
   $('#modalBg').classList.add('show');
