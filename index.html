@@ -20,9 +20,11 @@ body{min-height:100dvh}
 .sync-dot.ok{background:var(--grn)}.sync-dot.ng{background:var(--red)}.sync-dot.wait{background:var(--gold);animation:blink 1s infinite}.sync-dot.off{background:var(--t3);opacity:.4}
 .day-b{font-size:.6rem;color:var(--t3);letter-spacing:.06em}
 .zoom{display:flex;gap:2px;align-items:center}
-.zoom-btn{width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,.1);background:var(--s1);color:var(--t3);font-size:.55rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:600}
+.hdr-btn{width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:var(--s1);color:var(--t3);font-size:.6rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:600;flex-shrink:0}
+.hdr-btn:active{background:var(--s2);color:var(--t1)}
+.zoom-btn{width:22px;height:22px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:var(--s1);color:var(--t3);font-size:.55rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:600}
 .zoom-btn:active{background:var(--s2);color:var(--t1)}
-.refresh-btn{width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,.1);background:var(--s1);color:var(--t3);font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.refresh-btn{width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:var(--s1);color:var(--t3);font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .refresh-btn:active{background:var(--s2);color:var(--t1)}
 
 /* Dream Countdown */
@@ -140,6 +142,7 @@ body{min-height:100dvh}
 .tk-inp{flex:1;background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:.4rem .55rem;color:var(--t1);font-size:.75rem;font-family:inherit;outline:none}
 .tk-inp:focus{border-color:var(--gold)}.tk-inp::placeholder{color:var(--t3)}
 .tk-btn{background:var(--gold);color:var(--bg);border:none;border-radius:7px;padding:0 .6rem;font-size:.6rem;font-weight:600;cursor:pointer;font-family:inherit}
+.tk-btn:active{opacity:.8}
 .sel{background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:.4rem .15rem;color:var(--t2);font-size:.55rem;font-family:inherit;outline:none;-webkit-appearance:none}
 
 /* Phase */
@@ -389,7 +392,7 @@ function calcRealProgress(){
 // ── DB ──
 const DB_KEY='draem_db';
 const DB_BACKUP_KEY='draem_db_backup';
-function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,songs:7,revenue:0},songStage:0,timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',songs:null,goals:null,recurring:[],apiSettings:{},ver:0}}
+function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,songs:7,revenue:0},songStage:0,songStages:{},timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',songs:null,goals:null,recurring:[],apiSettings:{},ver:0}}
 function loadDB(){
   try{
     const raw=localStorage.getItem(DB_KEY);
@@ -436,6 +439,7 @@ function importData(file){
 let DB=loadDB();
 if(!DB.mission)DB.mission='2029年、音楽で生きる。\nそのために今日も1歩。';
 if(DB.songStage===undefined)DB.songStage=0;
+if(!DB.songStages)DB.songStages={};
 if(!DB.timerTotal)DB.timerTotal=0;
 if(!DB.songs)DB.songs=JSON.parse(JSON.stringify(DEF_SONGS));
 if(!DB.goals)DB.goals={...DEF_GOALS};
@@ -704,6 +708,7 @@ function mergeDB(remote){
   // Song stage, mission, songs, goals, recurring: take from whichever is newer
   if((remote.updated||'')>(local.updated||'')){
     if(remote.songStage!==undefined&&remote.songStage!==local.songStage){local.songStage=remote.songStage;changed=true;}
+    if(remote.songStages&&JSON.stringify(remote.songStages)!==JSON.stringify(local.songStages)){local.songStages={...local.songStages,...remote.songStages};changed=true;}
     if(remote.mission&&remote.mission!==local.mission){local.mission=remote.mission;changed=true;}
     if(remote.timerCat&&remote.timerCat!==local.timerCat){local.timerCat=remote.timerCat;changed=true;}
     if(remote.songs&&JSON.stringify(remote.songs)!==JSON.stringify(local.songs)){local.songs=remote.songs;changed=true;}
@@ -1079,7 +1084,7 @@ function renderWeeklyReview(){
   if(zeroCats.length&&thisTotal>3600)items.push({c:'tip',t:`未着手カテゴリ: ${zeroCats.join(', ')} — ${cur?'「'+cur.title+'」の':''}次のステージに進める？`});
 
   // Current song advice
-  if(cur){const stageIdx=DB.songStage||0;const nextDeadline=cur.date?Math.ceil((new Date(cur.date)-today)/864e5):null;if(nextDeadline!=null&&nextDeadline<=14)items.push({c:'tip',t:`「${cur.title}」リリースまで <b>${nextDeadline}日</b> — ${STAGES[stageIdx]}を今週中に完了させよう`});}
+  if(cur){const stageIdx=(DB.songStages&&DB.songStages[cur.title])||DB.songStage||0;const nextDeadline=cur.date?Math.ceil((new Date(cur.date)-today)/864e5):null;if(nextDeadline!=null&&nextDeadline<=14)items.push({c:'tip',t:`「${cur.title}」リリースまで <b>${nextDeadline}日</b> — ${STAGES[stageIdx]}を今週中に完了させよう`});}
 
   // Mood trend (this week)
   const moods=['😤','😐','🙂','😊','🔥'];
@@ -1292,7 +1297,8 @@ function renderMonthlyReview(){
 function calcFocus(){
   const S=SONGS(),G=DB.goals||DEF_GOALS;
   const cur=S.find(s=>s.status==='in_progress');
-  const stage=STAGES[DB.songStage||0];
+  const _curSong=SONGS().find(s=>s.status==='in_progress');
+  const stage=STAGES[(_curSong&&DB.songStages&&DB.songStages[_curSong.title])||DB.songStage||0];
   const overdue=DB.tasks.filter(x=>!x.done&&x.due&&x.due<=todayStr).sort((a,b)=>a.due<b.due?-1:1);
   const urgent3=DB.tasks.filter(x=>!x.done&&x.due&&!overdue.includes(x)).filter(x=>{const d=Math.ceil((new Date(x.due)-today)/864e5);return d<=3;}).sort((a,b)=>a.due<b.due?-1:1);
   const wt=weekTotal(),goalSec=G.weeklyHours*3600;
@@ -1361,7 +1367,7 @@ function render(){
   // Insights
   const insights=calcInsights();
   const ib=$('#insightBadge');
-  if(insights.length){ib.style.display='block';ib.innerHTML=insights.slice(0,2).join(' · ');}
+  if(insights.length){ib.style.display='block';ib.innerHTML=insights.slice(0,5).join('<br>');}
   else{ib.style.display='none';}
 
   // Focus
@@ -1377,11 +1383,15 @@ function render(){
   const S=SONGS(),G=DB.goals||DEF_GOALS;
   const cur=S.find(s=>s.status==='in_progress');
   if(cur){
+    if(!DB.songStages)DB.songStages={};
+    // 旧データ移行: グローバルsongStageを曲ごとに移す
+    if(DB.songStage&&!DB.songStages[cur.title]){DB.songStages[cur.title]=DB.songStage;}
+    const stageIdx=DB.songStages[cur.title]||0;
     let sh=`<div class="song-title"><span>${cur.char}</span>「${cur.title}」</div><div class="song-stages">`;
-    STAGES.forEach((s,i)=>{const cls=i<DB.songStage?'done':i===DB.songStage?'active':'';sh+=`<div class="stage ${cls}" data-si="${i}">${s}</div>`;});
+    STAGES.forEach((s,i)=>{const cls=i<stageIdx?'done':i===stageIdx?'active':'';sh+=`<div class="stage ${cls}" data-si="${i}">${s}</div>`;});
     sh+='</div>';
     $('#songProg').innerHTML=sh;
-    $('#songProg').querySelectorAll('.stage').forEach(el=>el.addEventListener('click',()=>{DB.songStage=+el.dataset.si;save();render();}));
+    $('#songProg').querySelectorAll('.stage').forEach(el=>el.addEventListener('click',()=>{if(!DB.songStages)DB.songStages={};DB.songStages[cur.title]=+el.dataset.si;save();render();}));
   }else{$('#songProg').innerHTML='';}
 
   // Pace: on track?
@@ -1509,7 +1519,7 @@ function openModal(type,extra){
       DB.songs[extra].title=$('#seTitle').value||null;
       DB.songs[extra].char=$('#seChar').value||'?';
       const newStatus=$('#seStatus').value;
-      if(newStatus==='in_progress'&&DB.songs[extra].status!=='in_progress')DB.songStage=0;
+      if(newStatus==='in_progress'&&DB.songs[extra].status!=='in_progress'){if(!DB.songStages)DB.songStages={};DB.songStages[DB.songs[extra].title]=0;}
       DB.songs[extra].status=newStatus;
       DB.songs[extra].date=$('#seDate').value||null;
       save();render();$('#modalBg').classList.remove('show');
@@ -1668,19 +1678,11 @@ function openModal(type,extra){
   }else if(type==='reflect'){
     const existingRef=(DB.reflections||[]).find(r=>r.date===todayStr);
     $('#mTitle').textContent='今日のひとこと';
-    $('#mFields').innerHTML=`
-      <div class="mf"><label>メモ</label><input id="reflectNote" placeholder="今日の一言..." value="${esc(existingRef?.note||'')}"></div>
-      <div class="mf" style="display:flex;align-items:center;gap:.5rem">
-        <label style="flex:1">睡眠時間</label>
-        <input id="reflectSleep" type="text" inputmode="numeric" placeholder="6:13" value="${existingRef?.sleep!=null?decToHMM(existingRef.sleep):''}" style="width:4rem;text-align:center">
-        <span style="font-size:.55rem;color:var(--t3)">h</span>
-      </div>`;
-    setTimeout(()=>{const rs=$('#reflectSleep');if(rs)rs.addEventListener('input',()=>formatSleepInput(rs));},50);
+    $('#mFields').innerHTML=`<div class="mf"><label>メモ</label><input id="reflectNote" placeholder="今日の一言..." value="${esc(existingRef?.note||'')}"></div>`;
     $('#mSave').onclick=()=>{
       const note=$('#reflectNote').value;
-      const sleep=parseSleep($('#reflectSleep').value);
       const r=(DB.reflections||[]).find(r=>r.date===todayStr);
-      if(r){r.note=note;r.sleep=sleep;}
+      if(r){r.note=note;}else{DB.reflections.push({date:todayStr,mood:null,note,sleep:null});}
       save();render();$('#modalBg').classList.remove('show');
     };
   }else if(type==='sync'){
@@ -1701,7 +1703,6 @@ function openModal(type,extra){
       <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
         <button id="btnGoals" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🎯 目標設定</button>
         <button id="btnRecurring" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🔁 リピートタスク</button>
-        <button id="btnCompFlow" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🎵 作曲フロー</button>
       </div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">UPDATE</div>
       <button id="btnForceUpdate" style="width:100%;padding:.35rem;background:var(--s2);color:var(--t2);border:1px solid rgba(255,255,255,.1);border-radius:6px;font-size:.6rem;cursor:pointer;font-family:inherit;margin-bottom:.4rem">🔄 キャッシュをクリアして最新版に更新</button>
@@ -1886,7 +1887,7 @@ function buildWeeklySummary(){
     ``,
     `## 楽曲進捗`,
     `- リリース済: ${released}曲`,
-    cur?`- 制作中: 「${cur.title}」(${STAGES[DB.songStage||0]})`:'- 制作中: なし',
+    cur?`- 制作中: 「${cur.title}」(${STAGES[(DB.songStages&&DB.songStages[cur.title])||DB.songStage||0]})`:'- 制作中: なし',
     ``,
     `## 先週の提案と結果`,
     prevSugSummary,
