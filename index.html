@@ -309,9 +309,8 @@ body{min-height:100dvh}
     <input type="text" class="tk-inp" id="learnMemo" placeholder="一言メモ..." style="flex:2">
     <select class="sel" id="learnCat" style="flex:1">
       <option value="">カテゴリ</option>
-      <option value="music">🎵 音楽制作</option>
+      <option value="music">🎵 音楽制作・MIX</option>
       <option value="vocal">🎤 ボーカル</option>
-      <option value="mix">🎛️ MIX</option>
       <option value="sns">📱 SNS/マーケ</option>
       <option value="biz">💼 ビジネス</option>
       <option value="mind">🧠 マインド</option>
@@ -1052,7 +1051,7 @@ function renderLog(){
 }
 
 // ── Learn Log ──
-const LEARN_CATS={music:'🎵 音楽制作',vocal:'🎤 ボーカル',mix:'🎛️ MIX',sns:'📱 SNS/マーケ',biz:'💼 ビジネス',mind:'🧠 マインド',tech:'💻 テック',health:'🏃 健康',other:'📝 その他'};
+const LEARN_CATS={music:'🎵 音楽制作・MIX',vocal:'🎤 ボーカル',sns:'📱 SNS/マーケ',biz:'💼 ビジネス',mind:'🧠 マインド',tech:'💻 テック',health:'🏃 健康',other:'📝 その他'};
 function renderLearnLog(){
   const el=$('#learnLog');if(!el)return;
   const items=(DB.learns||[]).slice().reverse().slice(0,20);
