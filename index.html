@@ -247,6 +247,8 @@ body{min-height:100dvh}
 
   <div class="reflect-bar" id="reflectBar"></div>
 
+  <div class="insight" id="goodmotBadge" style="display:none"></div>
+
   <div class="insight" id="insightBadge" style="display:none"></div>
 
   <div class="timer-box" id="timerBox"></div>
@@ -448,6 +450,7 @@ if(!DB.recurring)DB.recurring=[];
 if(!DB.compFlow)DB.compFlow={};
 if(!DB.reflections)DB.reflections=[];
 if(!DB.bestStreak)DB.bestStreak=0;
+if(!DB.goodmot)DB.goodmot=[];
 if(!DB.kpiLog)DB.kpiLog=[];           // [{date,subscribers,total_plays,revenue,songs}]
 if(!DB.weeklyLog)DB.weeklyLog=[];     // [{weekStart,totalSec,byCat,kpi}]
 if(!DB.suggestionLog)DB.suggestionLog=[]; // [{id,date,text,type,context,effective,evaluatedDate}]
@@ -580,6 +583,23 @@ function calcPredictions(){
     bestDow:byday[bestDow]>3600?dowNames[bestDow]:null,
     bestHour:bestHourTotal>3600?bestHour:null,
   };
+}
+
+// ── Good & Mot ──
+function renderGoodMot(){
+  const gb=$('#goodmotBadge');if(!gb)return;
+  const yesterday=new Date(today);yesterday.setDate(yesterday.getDate()-1);
+  const yStr=yesterday.toISOString().slice(0,10);
+  const yEntry=(DB.goodmot||[]).find(g=>g.date===yStr);
+  const todayEntry=(DB.goodmot||[]).find(g=>g.date===todayStr);
+  const streak14=(()=>{let s=0;for(let i=0;i<14;i++){const d=new Date(today);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);if((DB.goodmot||[]).find(g=>g.date===ds))s++;else break;}return s;})();
+  let html='';
+  if(streak14>=14)html+=`🏅 Good & Mot <b>14日連続</b> — 習慣化完了！<br>`;
+  else if(streak14>=7)html+=`✨ Good & Mot <b>${streak14}日連続</b> — あと${14-streak14}日で習慣化！<br>`;
+  if(yEntry&&yEntry.mot)html+=`📌 昨日のMot: <b>${esc(yEntry.mot)}</b>`;
+  if(!todayEntry)html+=html?'<br>':'';
+  if(!html){gb.style.display='none';return;}
+  gb.style.display='block';gb.innerHTML=html;
 }
 
 // ── Insight Engine ──
@@ -721,6 +741,13 @@ function mergeDB(remote){
   // Merge reflections by date
   const localRefDates=new Set((local.reflections||[]).map(r=>r.date));
   (remote.reflections||[]).forEach(r=>{if(!localRefDates.has(r.date)){(local.reflections=local.reflections||[]).push(r);changed=true;}});
+
+  // Merge goodmot: union by date, prefer local if same date
+  if(remote.goodmot&&Array.isArray(remote.goodmot)){
+    if(!local.goodmot)local.goodmot=[];
+    const localGMDates=new Set(local.goodmot.map(g=>g.date));
+    remote.goodmot.forEach(g=>{if(!localGMDates.has(g.date)){local.goodmot.push(g);changed=true;}});
+  }
 
   // Merge compFlow: per song, keep whichever has more done steps
   if(remote.compFlow&&typeof remote.compFlow==='object'){
@@ -1344,7 +1371,8 @@ function render(){
   // Reflection bar
   const todayRef=(DB.reflections||[]).find(r=>r.date===todayStr);
   const moods=['😤','😐','🙂','😊','🔥'];
-  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep!=null?decToHMM(todayRef.sleep):''}" placeholder="6:13" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span><span id="sleepHistBtn" style="font-size:.5rem;color:var(--t3);cursor:pointer;margin-left:.2rem" title="履歴を編集">📋</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
+  const todayGM=(DB.goodmot||[]).find(g=>g.date===todayStr);
+  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep!=null?decToHMM(todayRef.sleep):''}" placeholder="6:13" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span><span id="sleepHistBtn" style="font-size:.5rem;color:var(--t3);cursor:pointer;margin-left:.2rem" title="履歴を編集">📋</span><span id="goodmotBtn" style="font-size:.85rem;cursor:pointer;margin-left:.3rem;opacity:${todayGM?'1':'.35'}" title="Good & Mot">📓</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
   $('#reflectBar').querySelectorAll('.reflect-btn').forEach(el=>el.addEventListener('click',()=>{
     const mood=+el.dataset.mood;
     const existing=(DB.reflections||[]).findIndex(r=>r.date===todayStr);
@@ -1365,6 +1393,11 @@ function render(){
   if(addNoteEl)addNoteEl.addEventListener('click',()=>openModal('reflect'));
   const shBtn=$('#sleepHistBtn');
   if(shBtn)shBtn.addEventListener('click',()=>openModal('sleepHistory'));
+  const gmBtn=$('#goodmotBtn');
+  if(gmBtn)gmBtn.addEventListener('click',()=>openModal('goodmot'));
+
+  // Good & Mot badge (yesterday's Mot)
+  renderGoodMot();
 
   // Insights
   const insights=calcInsights();
@@ -1737,6 +1770,25 @@ function openModal(type,extra){
       const bcf=$('#btnCompFlow');if(bcf)bcf.addEventListener('click',()=>{$('#modalBg').classList.remove('show');setTimeout(()=>openModal('compFlow',0),100);});
       const bfu=$('#btnForceUpdate');if(bfu)bfu.addEventListener('click',async()=>{bfu.textContent='更新中...';bfu.disabled=true;try{if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));}const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)));}catch(e){}location.reload(true);});
     },50);
+  }else if(type==='goodmot'){
+    const entry=(DB.goodmot||[]).find(g=>g.date===todayStr)||{date:todayStr,goods:['','',''],mot:''};
+    const hist=(DB.goodmot||[]).filter(g=>g.date!==todayStr).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+    const histHtml=hist.length?`<div style="margin-top:.8rem;border-top:1px solid rgba(255,255,255,.06);padding-top:.6rem"><div style="font-size:.48rem;color:var(--t3);margin-bottom:.4rem">過去の記録</div>${hist.map(h=>`<div style="font-size:.5rem;color:var(--t2);margin-bottom:.35rem"><span style="color:var(--t3)">${h.date}</span> ${(h.goods||[]).filter(Boolean).map(g=>`✦${esc(g)}`).join(' ')}<br><span style="color:var(--gold)">Mot:</span> ${esc(h.mot||'')}</div>`).join('')}</div>`:'';
+    $('#mTitle').textContent='Good × 3 + Mot × 1';
+    $('#mFields').innerHTML=`
+      <div style="font-size:.5rem;color:var(--t3);margin-bottom:.6rem">今日の「よかったこと」を3つ書き、「次はこうしよう」を1つ決める</div>
+      <div class="mf"><label>Good 1</label><input id="gm1" value="${esc(entry.goods?.[0]||'')}" placeholder="よかったこと①"></div>
+      <div class="mf"><label>Good 2</label><input id="gm2" value="${esc(entry.goods?.[1]||'')}" placeholder="よかったこと②"></div>
+      <div class="mf"><label>Good 3</label><input id="gm3" value="${esc(entry.goods?.[2]||'')}" placeholder="よかったこと③"></div>
+      <div class="mf"><label>Mot（改善・次のアクション）</label><input id="gm4" value="${esc(entry.mot||'')}" placeholder="次はこうしよう…"></div>
+      ${histHtml}`;
+    $('#mSave').onclick=()=>{
+      if(!DB.goodmot)DB.goodmot=[];
+      const idx=DB.goodmot.findIndex(g=>g.date===todayStr);
+      const rec={date:todayStr,goods:[$('#gm1').value.trim(),$('#gm2').value.trim(),$('#gm3').value.trim()],mot:$('#gm4').value.trim()};
+      if(idx>=0)DB.goodmot[idx]=rec;else DB.goodmot.push(rec);
+      save();render();$('#modalBg').classList.remove('show');
+    };
   }
   $('#modalBg').classList.add('show');
 }
