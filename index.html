@@ -211,6 +211,15 @@ body{min-height:100dvh}
 .al-toggle:active{color:var(--t2)}
 .al-add-btn{font-size:.48rem;color:var(--gold);cursor:pointer;padding:.15rem .35rem;border:1px solid rgba(196,160,89,.3);border-radius:4px;white-space:nowrap}
 .al-add-btn:active{background:var(--gdim)}
+.ln-item{display:flex;align-items:flex-start;gap:.4rem;padding:.35rem .3rem;border-bottom:1px solid rgba(255,255,255,.04);font-size:.55rem}
+.ln-cat{font-size:.45rem;background:var(--s2);border-radius:4px;padding:.1rem .3rem;white-space:nowrap;flex-shrink:0}
+.ln-body{flex:1;min-width:0}
+.ln-memo{color:var(--t1);line-height:1.4;word-break:break-all}
+.ln-url{color:var(--t3);font-size:.45rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;display:block;margin-top:.1rem}
+.ln-url:hover{color:var(--gold)}
+.ln-date{font-size:.42rem;color:var(--t3);flex-shrink:0}
+.ln-del{font-size:.5rem;color:var(--t3);cursor:pointer;padding:.1rem .2rem;flex-shrink:0}
+.ln-del:active{color:var(--red)}
 
 /* Weekly Review */
 .wr{background:var(--s1);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.6rem .8rem}
@@ -289,6 +298,28 @@ body{min-height:100dvh}
 
   <div class="sec">Activity Log</div>
   <div id="actLog"></div>
+
+  <div class="sec">📚 学びログ</div>
+  <div id="learnLog"></div>
+  <div class="task-add" style="margin-top:.3rem">
+    <input type="text" class="tk-inp" id="learnUrl" placeholder="URL（YouTube, 記事など）" style="flex:2">
+    <button class="tk-btn" id="learnAddBtn">追加</button>
+  </div>
+  <div class="task-add" style="margin-top:.15rem">
+    <input type="text" class="tk-inp" id="learnMemo" placeholder="一言メモ..." style="flex:2">
+    <select class="sel" id="learnCat" style="flex:1">
+      <option value="">カテゴリ</option>
+      <option value="music">🎵 音楽制作</option>
+      <option value="vocal">🎤 ボーカル</option>
+      <option value="mix">🎛️ MIX</option>
+      <option value="sns">📱 SNS/マーケ</option>
+      <option value="biz">💼 ビジネス</option>
+      <option value="mind">🧠 マインド</option>
+      <option value="tech">💻 テック</option>
+      <option value="health">🏃 健康</option>
+      <option value="other">📝 その他</option>
+    </select>
+  </div>
 
   <div class="sec" style="display:flex;justify-content:space-between;align-items:center">Weekly Review <button id="btnWeeklyCopy" style="font-size:.45rem;padding:.15rem .4rem;border-radius:4px;border:1px solid rgba(255,255,255,.15);background:var(--s1);color:var(--t2);cursor:pointer;font-family:inherit">📋 Claudeに共有</button></div>
   <div id="weeklyReview"></div>
@@ -447,6 +478,7 @@ if(!DB.recurring)DB.recurring=[];
 if(!DB.compFlow)DB.compFlow={};
 if(!DB.reflections)DB.reflections=[];
 if(!DB.bestStreak)DB.bestStreak=0;
+if(!DB.learns)DB.learns=[];
 if(!DB.kpiLog)DB.kpiLog=[];           // [{date,subscribers,total_plays,revenue,songs}]
 if(!DB.weeklyLog)DB.weeklyLog=[];     // [{weekStart,totalSec,byCat,kpi}]
 if(!DB.suggestionLog)DB.suggestionLog=[]; // [{id,date,text,type,context,effective,evaluatedDate}]
@@ -720,6 +752,10 @@ function mergeDB(remote){
   // Merge reflections by date
   const localRefDates=new Set((local.reflections||[]).map(r=>r.date));
   (remote.reflections||[]).forEach(r=>{if(!localRefDates.has(r.date)){(local.reflections=local.reflections||[]).push(r);changed=true;}});
+
+  // Merge learns by id
+  const localLearnIds=new Set((local.learns||[]).map(l=>l.id));
+  (remote.learns||[]).forEach(l=>{if(!localLearnIds.has(l.id)){(local.learns=local.learns||[]).push(l);changed=true;}});
 
   // Merge compFlow: per song, keep whichever has more done steps
   if(remote.compFlow&&typeof remote.compFlow==='object'){
@@ -1013,6 +1049,37 @@ function renderLog(){
     el.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();go();});
     el.addEventListener('touchend',e=>{e.stopPropagation();e.preventDefault();go();},{passive:false});
   });
+}
+
+// ── Learn Log ──
+const LEARN_CATS={music:'🎵 音楽制作',vocal:'🎤 ボーカル',mix:'🎛️ MIX',sns:'📱 SNS/マーケ',biz:'💼 ビジネス',mind:'🧠 マインド',tech:'💻 テック',health:'🏃 健康',other:'📝 その他'};
+function renderLearnLog(){
+  const el=$('#learnLog');if(!el)return;
+  const items=(DB.learns||[]).slice().reverse().slice(0,20);
+  if(!items.length){el.innerHTML='<div style="font-size:.55rem;color:var(--t3);padding:.4rem 0;text-align:center">まだ記録なし</div>';return;}
+  el.innerHTML=items.map(l=>{
+    const cat=l.cat?LEARN_CATS[l.cat]||l.cat:'';
+    const isYT=l.url&&(l.url.includes('youtu'))||false;
+    const urlLabel=isYT?'▶ YouTube':l.url?'🔗 リンク':'';
+    return`<div class="ln-item" data-lid="${l.id}"><div class="ln-body"><div class="ln-memo">${cat?`<span class="ln-cat">${cat}</span> `:''}${esc(l.memo||'')}</div>${l.url?`<a class="ln-url" href="${esc(l.url)}" target="_blank" rel="noopener">${urlLabel}: ${esc(l.url)}</a>`:''}</div><span class="ln-date">${(l.date||'').slice(5)}</span><span class="ln-del" data-lid="${l.id}">✕</span></div>`;
+  }).join('');
+  el.querySelectorAll('.ln-del').forEach(d=>d.addEventListener('click',e=>{
+    e.stopPropagation();
+    const id=d.dataset.lid;
+    const idx=(DB.learns||[]).findIndex(l=>l.id===id);
+    if(idx>=0){const removed=DB.learns.splice(idx,1)[0];pushUndo('学びを削除しました',()=>{DB.learns.splice(idx,0,removed);save();renderLearnLog();});}
+    save();renderLearnLog();
+  }));
+}
+function addLearn(){
+  const url=$('#learnUrl').value.trim();
+  const memo=$('#learnMemo').value.trim();
+  const cat=$('#learnCat').value;
+  if(!url&&!memo)return;
+  if(!DB.learns)DB.learns=[];
+  DB.learns.push({id:Date.now().toString(),url,memo,cat,date:todayStr});
+  save();renderLearnLog();
+  $('#learnUrl').value='';$('#learnMemo').value='';$('#learnCat').value='';
 }
 
 // ── Weekly Review Engine ──
@@ -1434,6 +1501,7 @@ function render(){
   // Activity Log
   renderLog();
   renderCompFlow();
+  renderLearnLog();
 
   // Weekly Review
   renderWeeklyReview();
@@ -1746,6 +1814,8 @@ function submitTask(){addTask($('#taskInp').value,$('#catSel').value,$('#dueSel'
 $('#taskBtn').addEventListener('click',submitTask);
 $('#taskInp').addEventListener('keydown',e=>{if(e.key==='Enter')submitTask();});
 $('#btnRecurringTask').addEventListener('click',()=>openModal('recurring'));
+$('#learnAddBtn').addEventListener('click',addLearn);
+$('#learnMemo').addEventListener('keydown',e=>{if(e.key==='Enter')addLearn();});
 $('#gearBtn').addEventListener('click',()=>openModal('sync'));
 
 // Timer auto-update
