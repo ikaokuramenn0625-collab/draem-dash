@@ -1995,6 +1995,27 @@ $('#btnWeeklyCopy').addEventListener('click',()=>{
   });
 });
 
+// ── Apple Health URLパラメータからの自動保存 ──
+(()=>{
+  const p=new URLSearchParams(location.search);
+  let updated=false;
+  const sleepV=p.has('sleep')?+p.get('sleep'):null;
+  const swimV=p.has('swim')?+p.get('swim'):null;
+  if(sleepV!=null&&!isNaN(sleepV)&&sleepV>0&&sleepV<=24){
+    const r=(DB.reflections||[]).find(r=>r.date===todayStr);
+    const v=+sleepV.toFixed(2);
+    if(r)r.sleep=v;else DB.reflections.push({date:todayStr,mood:null,note:'',sleep:v});
+    updated=true;
+  }
+  if(swimV!=null&&!isNaN(swimV)&&swimV>0){
+    if(!DB.swimLog)DB.swimLog=[];
+    const idx=DB.swimLog.findIndex(s=>s.date===todayStr);
+    if(idx>=0)DB.swimLog[idx].dist=swimV;else DB.swimLog.push({date:todayStr,dist:swimV});
+    updated=true;
+  }
+  if(updated){save();history.replaceState({},'',location.pathname);}
+})();
+
 render();
 syncPull();
 fetchYT();
