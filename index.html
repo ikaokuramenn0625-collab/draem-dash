@@ -1752,7 +1752,23 @@ function openModal(type,extra){
         });
       });
     },50);
-    $('#mSave').onclick=()=>{render();$('#modalBg').classList.remove('show');};
+    $('#mSave').onclick=()=>{
+      $('#mFields').querySelectorAll('.sh-inp').forEach(inp=>{
+        const date=inp.dataset.date;const v=parseSleep(inp.value);
+        const idx=(DB.reflections||[]).findIndex(r=>r.date===date);
+        if(idx>=0)DB.reflections[idx].sleep=v;
+        else if(v!=null)DB.reflections.push({date,mood:null,note:'',sleep:v});
+      });
+      $('#mFields').querySelectorAll('.sw-inp').forEach(inp=>{
+        const date=inp.dataset.date;const v=inp.value===''?null:+inp.value;
+        if(!DB.swimLog)DB.swimLog=[];
+        const idx=DB.swimLog.findIndex(s=>s.date===date);
+        if(v==null){if(idx>=0)DB.swimLog.splice(idx,1);}
+        else if(idx>=0)DB.swimLog[idx].dist=v;
+        else DB.swimLog.push({date,dist:v});
+      });
+      save();render();$('#modalBg').classList.remove('show');
+    };
   }else if(type==='reflect'){
     const existingRef=(DB.reflections||[]).find(r=>r.date===todayStr);
     $('#mTitle').textContent='今日のひとこと';
