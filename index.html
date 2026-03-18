@@ -451,6 +451,7 @@ if(!DB.compFlow)DB.compFlow={};
 if(!DB.reflections)DB.reflections=[];
 if(!DB.bestStreak)DB.bestStreak=0;
 if(!DB.goodmot)DB.goodmot=[];
+if(!DB.swimLog)DB.swimLog=[];          // [{date,dist}]
 if(!DB.kpiLog)DB.kpiLog=[];           // [{date,subscribers,total_plays,revenue,songs}]
 if(!DB.weeklyLog)DB.weeklyLog=[];     // [{weekStart,totalSec,byCat,kpi}]
 if(!DB.suggestionLog)DB.suggestionLog=[]; // [{id,date,text,type,context,effective,evaluatedDate}]
@@ -596,7 +597,10 @@ function renderGoodMot(){
   let html='';
   if(streak14>=14)html+=`🏅 Good & Mot <b>14日連続</b> — 習慣化完了！<br>`;
   else if(streak14>=7)html+=`✨ Good & Mot <b>${streak14}日連続</b> — あと${14-streak14}日で習慣化！<br>`;
-  if(yEntry&&yEntry.mot)html+=`📌 昨日のMot: <b>${esc(yEntry.mot)}</b>`;
+  const yImprove=yEntry&&(yEntry.improve||yEntry.mot);
+  const yAction=yEntry&&yEntry.action;
+  if(yImprove)html+=`📌 昨日の改善: <b>${esc(yImprove)}</b>${yAction?' → '+esc(yAction):''}`;
+
   if(!todayEntry)html+=html?'<br>':'';
   if(!html){gb.style.display='none';return;}
   gb.style.display='block';gb.innerHTML=html;
@@ -741,6 +745,13 @@ function mergeDB(remote){
   // Merge reflections by date
   const localRefDates=new Set((local.reflections||[]).map(r=>r.date));
   (remote.reflections||[]).forEach(r=>{if(!localRefDates.has(r.date)){(local.reflections=local.reflections||[]).push(r);changed=true;}});
+
+  // Merge swimLog: union by date, prefer local
+  if(remote.swimLog&&Array.isArray(remote.swimLog)){
+    if(!local.swimLog)local.swimLog=[];
+    const localSwimDates=new Set(local.swimLog.map(s=>s.date));
+    remote.swimLog.forEach(s=>{if(!localSwimDates.has(s.date)){local.swimLog.push(s);changed=true;}});
+  }
 
   // Merge goodmot: union by date, prefer local if same date
   if(remote.goodmot&&Array.isArray(remote.goodmot)){
@@ -1328,7 +1339,7 @@ function calcFocus(){
   const cur=S.find(s=>s.status==='in_progress');
   const _curSong=SONGS().find(s=>s.status==='in_progress');
   const stage=STAGES[(_curSong&&DB.songStages&&DB.songStages[_curSong.title])||DB.songStage||0];
-  const overdue=DB.tasks.filter(x=>!x.done&&x.due&&x.due<=todayStr).sort((a,b)=>a.due<b.due?-1:1);
+  const overdue=DB.tasks.filter(x=>!x.done&&x.due&&x.due<todayStr).sort((a,b)=>a.due<b.due?-1:1);
   const urgent3=DB.tasks.filter(x=>!x.done&&x.due&&!overdue.includes(x)).filter(x=>{const d=Math.ceil((new Date(x.due)-today)/864e5);return d<=3;}).sort((a,b)=>a.due<b.due?-1:1);
   const wt=weekTotal(),goalSec=G.weeklyHours*3600;
   const bc=weekByCat();
@@ -1372,7 +1383,8 @@ function render(){
   const todayRef=(DB.reflections||[]).find(r=>r.date===todayStr);
   const moods=['😤','😐','🙂','😊','🔥'];
   const todayGM=(DB.goodmot||[]).find(g=>g.date===todayStr);
-  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep!=null?decToHMM(todayRef.sleep):''}" placeholder="6:13" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span><span id="sleepHistBtn" style="font-size:.5rem;color:var(--t3);cursor:pointer;margin-left:.2rem" title="履歴を編集">📋</span><span id="goodmotBtn" style="font-size:.85rem;cursor:pointer;margin-left:.3rem;opacity:${todayGM?'1':'.35'}" title="Good & Mot">📓</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
+  const todaySwim=(DB.swimLog||[]).find(s=>s.date===todayStr);
+  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep!=null?decToHMM(todayRef.sleep):''}" placeholder="h:mm" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span><span style="font-size:.55rem;margin-left:.35rem">🏊</span><input id="swimInput" type="number" inputmode="numeric" min="0" value="${todaySwim?todaySwim.dist:''}" placeholder="−" style="width:2.8rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">m</span><span id="sleepHistBtn" style="font-size:.5rem;color:var(--t3);cursor:pointer;margin-left:.2rem" title="履歴を編集">📋</span><span id="goodmotBtn" style="font-size:.85rem;cursor:pointer;margin-left:.3rem;opacity:${todayGM?'1':'.35'}" title="Good & Mot">📓</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
   $('#reflectBar').querySelectorAll('.reflect-btn').forEach(el=>el.addEventListener('click',()=>{
     const mood=+el.dataset.mood;
     const existing=(DB.reflections||[]).findIndex(r=>r.date===todayStr);
@@ -1382,11 +1394,22 @@ function render(){
   }));
   const sleepEl=$('#sleepInput');
   if(sleepEl)sleepEl.addEventListener('input',()=>formatSleepInput(sleepEl));
-  if(sleepEl)sleepEl.addEventListener('change',()=>{
+  function saveSleep(){
     const v=parseSleep(sleepEl.value);
     const r=(DB.reflections||[]).find(r=>r.date===todayStr);
     if(r)r.sleep=v;
     else DB.reflections.push({date:todayStr,mood:null,note:'',sleep:v});
+    save();
+  }
+  if(sleepEl){sleepEl.addEventListener('change',saveSleep);sleepEl.addEventListener('blur',saveSleep);}
+  const swimEl=$('#swimInput');
+  if(swimEl)swimEl.addEventListener('change',()=>{
+    const v=swimEl.value===''?null:+swimEl.value;
+    if(!DB.swimLog)DB.swimLog=[];
+    const idx=DB.swimLog.findIndex(s=>s.date===todayStr);
+    if(v==null){if(idx>=0)DB.swimLog.splice(idx,1);}
+    else if(idx>=0)DB.swimLog[idx].dist=v;
+    else DB.swimLog.push({date:todayStr,dist:v});
     save();
   });
   const addNoteEl=$('#addNote');
@@ -1771,21 +1794,22 @@ function openModal(type,extra){
       const bfu=$('#btnForceUpdate');if(bfu)bfu.addEventListener('click',async()=>{bfu.textContent='更新中...';bfu.disabled=true;try{if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));}const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)));}catch(e){}location.reload(true);});
     },50);
   }else if(type==='goodmot'){
-    const entry=(DB.goodmot||[]).find(g=>g.date===todayStr)||{date:todayStr,goods:['','',''],mot:''};
+    const entry=(DB.goodmot||[]).find(g=>g.date===todayStr)||{date:todayStr,goods:['','',''],improve:'',action:''};
     const hist=(DB.goodmot||[]).filter(g=>g.date!==todayStr).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
-    const histHtml=hist.length?`<div style="margin-top:.8rem;border-top:1px solid rgba(255,255,255,.06);padding-top:.6rem"><div style="font-size:.48rem;color:var(--t3);margin-bottom:.4rem">過去の記録</div>${hist.map(h=>`<div style="font-size:.5rem;color:var(--t2);margin-bottom:.35rem"><span style="color:var(--t3)">${h.date}</span> ${(h.goods||[]).filter(Boolean).map(g=>`✦${esc(g)}`).join(' ')}<br><span style="color:var(--gold)">Mot:</span> ${esc(h.mot||'')}</div>`).join('')}</div>`:'';
+    const histHtml=hist.length?`<div style="margin-top:.8rem;border-top:1px solid rgba(255,255,255,.06);padding-top:.6rem"><div style="font-size:.48rem;color:var(--t3);margin-bottom:.4rem">過去の記録</div>${hist.map(h=>`<div style="font-size:.5rem;color:var(--t2);margin-bottom:.35rem"><span style="color:var(--t3)">${h.date}</span> ${(h.goods||[]).filter(Boolean).map(g=>`✦${esc(g)}`).join(' ')}<br><span style="color:var(--gold)">改善:</span> ${esc(h.improve||h.mot||'')} <span style="color:var(--gold);margin-left:.3rem">→</span> ${esc(h.action||'')}</div>`).join('')}</div>`:'';
     $('#mTitle').textContent='Good × 3 + Mot × 1';
     $('#mFields').innerHTML=`
-      <div style="font-size:.5rem;color:var(--t3);margin-bottom:.6rem">今日の「よかったこと」を3つ書き、「次はこうしよう」を1つ決める</div>
+      <div style="font-size:.5rem;color:var(--t3);margin-bottom:.6rem">今日の「よかったこと」を3つ書き、改善と次のアクションを決める</div>
       <div class="mf"><label>Good 1</label><input id="gm1" value="${esc(entry.goods?.[0]||'')}" placeholder="よかったこと①"></div>
       <div class="mf"><label>Good 2</label><input id="gm2" value="${esc(entry.goods?.[1]||'')}" placeholder="よかったこと②"></div>
       <div class="mf"><label>Good 3</label><input id="gm3" value="${esc(entry.goods?.[2]||'')}" placeholder="よかったこと③"></div>
-      <div class="mf"><label>Mot（改善・次のアクション）</label><input id="gm4" value="${esc(entry.mot||'')}" placeholder="次はこうしよう…"></div>
+      <div class="mf"><label>改善（こうすればよかった）</label><input id="gm4" value="${esc(entry.improve||entry.mot||'')}" placeholder="こうすればよかった…"></div>
+      <div class="mf"><label>次アクション（明日やること）</label><input id="gm5" value="${esc(entry.action||'')}" placeholder="明日やること…"></div>
       ${histHtml}`;
     $('#mSave').onclick=()=>{
       if(!DB.goodmot)DB.goodmot=[];
       const idx=DB.goodmot.findIndex(g=>g.date===todayStr);
-      const rec={date:todayStr,goods:[$('#gm1').value.trim(),$('#gm2').value.trim(),$('#gm3').value.trim()],mot:$('#gm4').value.trim()};
+      const rec={date:todayStr,goods:[$('#gm1').value.trim(),$('#gm2').value.trim(),$('#gm3').value.trim()],improve:$('#gm4').value.trim(),action:$('#gm5').value.trim()};
       if(idx>=0)DB.goodmot[idx]=rec;else DB.goodmot.push(rec);
       save();render();$('#modalBg').classList.remove('show');
     };
