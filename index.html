@@ -1406,7 +1406,7 @@ function render(){
   const moods=['😤','😐','🙂','😊','🔥'];
   const todayGM=(DB.goodmot||[]).find(g=>g.date===todayStr);
   const todaySwim=(DB.swimLog||[]).find(s=>s.date===todayStr);
-  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span style="font-size:.55rem">😴</span><input id="sleepInput" type="text" inputmode="numeric" value="${todayRef?.sleep!=null?decToHMM(todayRef.sleep):''}" placeholder="h:mm" style="width:2.6rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">h</span><span style="font-size:.55rem;margin-left:.35rem">🏊</span><input id="swimInput" type="number" inputmode="numeric" min="0" value="${todaySwim?todaySwim.dist:''}" placeholder="−" style="width:2.8rem;background:var(--s2);border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--t1);font-size:.55rem;padding:.1rem .2rem;text-align:center"><span style="font-size:.45rem;color:var(--t3)">m</span><span id="sleepHistBtn" style="font-size:.5rem;color:var(--t3);cursor:pointer;margin-left:.2rem" title="履歴を編集">📋</span><span id="goodmotBtn" style="font-size:.85rem;cursor:pointer;margin-left:.3rem;opacity:${todayGM?'1':'.35'}" title="Good & Mot">📓</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
+  $('#reflectBar').innerHTML=`<div style="width:100%"><div style="display:flex;gap:.3rem;justify-content:center;align-items:center">${moods.map((m,i)=>`<div class="reflect-btn ${todayRef&&todayRef.mood===i?'sel':''}" data-mood="${i}">${m}</div>`).join('')}<div style="margin-left:.4rem;display:flex;align-items:center;gap:.2rem"><span id="sleepBadge" style="cursor:pointer;display:flex;align-items:center;gap:.2rem;background:var(--s2);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:.2rem .45rem;font-size:.55rem">😴 <span style="color:${todayRef?.sleep!=null?'var(--t1)':'var(--t3)'}">${todayRef?.sleep!=null?decToHMM(todayRef.sleep):'−−'}</span></span><span id="swimBadge" style="cursor:pointer;display:flex;align-items:center;gap:.2rem;background:var(--s2);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:.2rem .45rem;font-size:.55rem">🏊 <span style="color:${todaySwim?'var(--t1)':'var(--t3)'}">${todaySwim?todaySwim.dist+'m':'−'}</span></span><span id="sleepHistBtn" style="font-size:.5rem;color:var(--t3);cursor:pointer;margin-left:.2rem" title="履歴を編集">📋</span><span id="goodmotBtn" style="font-size:.85rem;cursor:pointer;margin-left:.3rem;opacity:${todayGM?'1':'.35'}" title="Good & Mot">📓</span></div></div>${todayRef&&todayRef.note?'<div class="reflect-note">'+esc(todayRef.note)+'</div>':todayRef?'<div class="reflect-note" style="cursor:pointer" id="addNote">+ メモを追加</div>':'<div class="reflect-note">今日の気分は？</div>'}</div>`;
   $('#reflectBar').querySelectorAll('.reflect-btn').forEach(el=>el.addEventListener('click',()=>{
     const mood=+el.dataset.mood;
     const existing=(DB.reflections||[]).findIndex(r=>r.date===todayStr);
@@ -1414,26 +1414,10 @@ function render(){
     else DB.reflections.push({date:todayStr,mood,note:''});
     recordDay();save();render();
   }));
-  const sleepEl=$('#sleepInput');
-  if(sleepEl)sleepEl.addEventListener('input',()=>formatSleepInput(sleepEl));
-  function saveSleep(){
-    const v=parseSleep(sleepEl.value);
-    const r=(DB.reflections||[]).find(r=>r.date===todayStr);
-    if(r)r.sleep=v;
-    else DB.reflections.push({date:todayStr,mood:null,note:'',sleep:v});
-    save();
-  }
-  if(sleepEl){sleepEl.addEventListener('change',saveSleep);sleepEl.addEventListener('blur',saveSleep);}
-  const swimEl=$('#swimInput');
-  if(swimEl)swimEl.addEventListener('change',()=>{
-    const v=swimEl.value===''?null:+swimEl.value;
-    if(!DB.swimLog)DB.swimLog=[];
-    const idx=DB.swimLog.findIndex(s=>s.date===todayStr);
-    if(v==null){if(idx>=0)DB.swimLog.splice(idx,1);}
-    else if(idx>=0)DB.swimLog[idx].dist=v;
-    else DB.swimLog.push({date:todayStr,dist:v});
-    save();
-  });
+  const sleepBadgeEl=$('#sleepBadge');
+  if(sleepBadgeEl)sleepBadgeEl.addEventListener('click',()=>openModal('healthEntry'));
+  const swimBadgeEl=$('#swimBadge');
+  if(swimBadgeEl)swimBadgeEl.addEventListener('click',()=>openModal('healthEntry'));
   const addNoteEl=$('#addNote');
   if(addNoteEl)addNoteEl.addEventListener('click',()=>openModal('reflect'));
   const shBtn=$('#sleepHistBtn');
@@ -1730,6 +1714,39 @@ function openModal(type,extra){
       save();render();
       $('#modalBg').classList.remove('show');
     };
+  }else if(type==='healthEntry'){
+    const todayRef2=(DB.reflections||[]).find(r=>r.date===todayStr);
+    const todaySwim2=(DB.swimLog||[]).find(s=>s.date===todayStr);
+    const sleepVal=todayRef2?.sleep!=null?decToHMM(todayRef2.sleep):'';
+    const swimVal=todaySwim2?.dist!=null?todaySwim2.dist:'';
+    const sleepBtns=[5.5,6,6.5,7,7.5,8,8.5,9].map(h=>{const active=todayRef2?.sleep===h;return`<button class="he-sl" data-v="${h}" style="flex:1;min-width:2.3rem;padding:.4rem .1rem;background:var(--s2);border:1px solid ${active?'var(--gold)':'rgba(255,255,255,.1)'};border-radius:6px;color:${active?'var(--gold)':'var(--t2)'};font-size:.55rem;cursor:pointer">${h}h</button>`;}).join('');
+    const swimBtns=[500,750,1000,1250,1500].map(m=>{const active=todaySwim2?.dist===m;return`<button class="he-sw" data-v="${m}" style="flex:1;min-width:2.8rem;padding:.4rem .1rem;background:var(--s2);border:1px solid ${active?'#4af':'rgba(255,255,255,.1)'};border-radius:6px;color:${active?'#4af':'var(--t2)'};font-size:.55rem;cursor:pointer">${m}m</button>`;}).join('');
+    const inp='width:100%;background:var(--s1);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--t1);font-size:.75rem;padding:.55rem;text-align:center;box-sizing:border-box;margin-top:.3rem';
+    $('#mTitle').textContent='今日の健康記録';
+    $('#mFields').innerHTML=`<div style="margin-bottom:.9rem"><div style="font-size:.55rem;color:var(--t3);margin-bottom:.35rem">😴 睡眠時間</div><div style="display:flex;gap:.2rem;flex-wrap:wrap">${sleepBtns}</div><input id="heSleepInp" type="text" inputmode="numeric" value="${sleepVal}" placeholder="h:mm で入力" style="${inp}"></div><div><div style="font-size:.55rem;color:var(--t3);margin-bottom:.35rem">🏊 水泳距離</div><div style="display:flex;gap:.2rem;flex-wrap:wrap">${swimBtns}</div><input id="heSwimInp" type="number" inputmode="numeric" min="0" value="${swimVal}" placeholder="距離（m）を入力" style="${inp}"></div>`;
+    $('#mSave').onclick=()=>{
+      const sv=parseSleep($('#heSleepInp').value);
+      const r=(DB.reflections||[]).find(r=>r.date===todayStr);
+      if(r)r.sleep=sv;else if(sv!=null)DB.reflections.push({date:todayStr,mood:null,note:'',sleep:sv});
+      const swv=$('#heSwimInp').value===''?null:+$('#heSwimInp').value;
+      if(!DB.swimLog)DB.swimLog=[];
+      const si=DB.swimLog.findIndex(s=>s.date===todayStr);
+      if(swv==null){if(si>=0)DB.swimLog.splice(si,1);}else if(si>=0)DB.swimLog[si].dist=swv;else DB.swimLog.push({date:todayStr,dist:swv});
+      save();render();$('#modalBg').classList.remove('show');
+    };
+    setTimeout(()=>{
+      const si=$('#heSleepInp');if(si)si.addEventListener('input',()=>formatSleepInput(si));
+      $('#mFields').querySelectorAll('.he-sl').forEach(btn=>btn.addEventListener('click',()=>{
+        $('#heSleepInp').value=decToHMM(+btn.dataset.v);
+        $('#mFields').querySelectorAll('.he-sl').forEach(b=>{b.style.borderColor='rgba(255,255,255,.1)';b.style.color='var(--t2)';});
+        btn.style.borderColor='var(--gold)';btn.style.color='var(--gold)';
+      }));
+      $('#mFields').querySelectorAll('.he-sw').forEach(btn=>btn.addEventListener('click',()=>{
+        $('#heSwimInp').value=+btn.dataset.v;
+        $('#mFields').querySelectorAll('.he-sw').forEach(b=>{b.style.borderColor='rgba(255,255,255,.1)';b.style.color='var(--t2)';});
+        btn.style.borderColor='#4af';btn.style.color='#4af';
+      }));
+    },50);
   }else if(type==='sleepHistory'){
     $('#mTitle').textContent='睡眠・水泳履歴を編集';
     const days14=[...Array(14)].map((_,i)=>{const d=new Date(today);d.setDate(today.getDate()-i);return d.toISOString().slice(0,10);});
