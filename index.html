@@ -1686,33 +1686,39 @@ function renderAsset(){
         const salaryStep=500000;const salaryCap=14000000;
         // 実績履歴
         const hist=(DB.assetHistory||[]).sort((a,b)=>a.date.localeCompare(b.date));
-        // 現在値から先の予測ライン
+        // シナリオ別予測ライン
         const curAge=ageNow;
         const curVal=totalValue;
-        const futureProj=[{age:curAge,value:curVal}];
-        let fv=curVal;
-        for(let y=0;y<10;y++){
-          const projAge=curAge+y;
-          if(projAge>=endAge)break;
-          const yearsSinceBase=Math.round(projAge-startAge);
-          const sal=Math.min(baseSalary+yearsSinceBase*salaryStep,salaryCap);
-          const annualInvest=Math.max(0,sal*0.72-3720000);
-          const r=projAge<35?0.12:0.10;
-          fv=fv*(1+r)+annualInvest;
-          futureProj.push({age:projAge+1,value:fv});
-        }
-        const allVals=[...hist.map(h=>h.value),...futureProj.map(p=>p.value),TARGET];
+        const SCENARIOS=[
+          {label:'暴落あり',prob:'20%',r1:0.08,r2:0.06,color:'#D47A6A',final:0},
+          {label:'標準',    prob:'50%',r1:0.12,r2:0.10,color:'#C4A059',final:0},
+          {label:'好調',    prob:'25%',r1:0.14,r2:0.12,color:'#7EB8D4',final:0},
+          {label:'超強気',  prob:'5%', r1:0.16,r2:0.14,color:'#9B8FD4',final:0},
+        ];
+        const scenarioProjs=SCENARIOS.map(sc=>{
+          const pts=[{age:curAge,value:curVal}];
+          let fv=curVal;
+          for(let y=0;y<10;y++){
+            const projAge=curAge+y;if(projAge>=endAge)break;
+            const yearsSinceBase=Math.round(projAge-startAge);
+            const sal=Math.min(baseSalary+yearsSinceBase*salaryStep,salaryCap);
+            const annualInvest=Math.max(0,sal*0.72-3720000);
+            const r=projAge<35?sc.r1:sc.r2;
+            fv=fv*(1+r)+annualInvest;
+            pts.push({age:projAge+1,value:fv});
+          }
+          return {...sc,pts,final:Math.round(pts[pts.length-1].value)};
+        });
+        const allVals=[...hist.map(h=>h.value),...scenarioProjs.flatMap(s=>s.pts.map(p=>p.value)),TARGET];
         const maxV=Math.max(...allVals)*1.05;
         const W=280,H=100,PAD=6;
         const toX=a=>PAD+(a-startAge)*(W-PAD*2)/steps;
         const toY=v=>H-PAD-(v/maxV)*(H-PAD*2);
         const ty=toY(TARGET);
-        // 将来予測ライン（現在値から）
-        const futurePts=futureProj.map(p=>`${toX(p.age).toFixed(1)},${toY(p.value).toFixed(1)}`).join(' ');
         // 実績ライン
         const actualPts=hist.length>=2?hist.map(h=>{const age=(new Date(h.date)-BIRTH)/(365.25*86400000);return `${toX(age).toFixed(1)},${toY(h.value).toFixed(1)}`;}).join(' '):'';
         // Y軸ラベル
-        const yLabels=[0,2000,4000,6000].map(v=>`<text x="${PAD-1}" y="${toY(v*10000).toFixed(1)}" font-size="4.5" fill="rgba(255,255,255,.25)" text-anchor="end" dominant-baseline="middle">${v}</text>`).join('');
+        const yLabels=[0,2000,4000,6000,8000].map(v=>v<=Math.round(maxV/10000)*10000?`<text x="${PAD-1}" y="${toY(v*10000).toFixed(1)}" font-size="4.5" fill="rgba(255,255,255,.25)" text-anchor="end" dominant-baseline="middle">${v}</text>`:'').join('');
         // X軸ラベル（29〜38全て）
         const xLabels=[29,30,31,32,33,34,35,36,37,38].map(a=>`<text x="${toX(a).toFixed(1)}" y="${H+5}" font-size="4.5" fill="rgba(255,255,255,.3)" text-anchor="middle">${a}</text>`).join('');
         // 現在位置マーカー
@@ -1721,15 +1727,15 @@ function renderAsset(){
           <line x1="${PAD}" y1="${ty.toFixed(1)}" x2="${W-PAD}" y2="${ty.toFixed(1)}" stroke="rgba(196,160,89,.3)" stroke-width="1" stroke-dasharray="4,3"/>
           <text x="${W-PAD}" y="${(ty-2).toFixed(1)}" font-size="4.5" fill="rgba(196,160,89,.6)" text-anchor="end">目標5,500万</text>
           ${yLabels}${xLabels}
+          ${scenarioProjs.map(sc=>`<polyline points="${sc.pts.map(p=>`${toX(p.age).toFixed(1)},${toY(p.value).toFixed(1)}`).join(' ')}" fill="none" stroke="${sc.color}" stroke-width="1.5" stroke-dasharray="5,3" stroke-linejoin="round" opacity=".8"/>`).join('')}
           ${actualPts?`<polyline points="${actualPts}" fill="none" stroke="#6abf8a" stroke-width="2" stroke-linejoin="round"/>`:''}
           ${hist.map(h=>{const age=(new Date(h.date)-BIRTH)/(365.25*86400000);return `<circle cx="${toX(age).toFixed(1)}" cy="${toY(h.value).toFixed(1)}" r="2.5" fill="#6abf8a"/>`;}).join('')}
-          <polyline points="${futurePts}" fill="none" stroke="rgba(196,160,89,.7)" stroke-width="1.5" stroke-dasharray="5,3" stroke-linejoin="round"/>
           <circle cx="${nowX.toFixed(1)}" cy="${nowY.toFixed(1)}" r="3.5" fill="var(--gold)" stroke="var(--bg)" stroke-width="1.5"/>
         </svg>
-        <div style="display:flex;gap:.8rem;margin-top:.2rem">
-          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:14px;height:2px;background:rgba(196,160,89,.7);display:inline-block;border-radius:1px;border-top:1px dashed rgba(196,160,89,.7)"></span>今後の予測</div>
-          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:14px;height:2px;background:#6abf8a;display:inline-block;border-radius:1px"></span>実績</div>
-          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:7px;height:7px;border-radius:50%;background:var(--gold);display:inline-block"></span>現在</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.2rem .6rem;margin-top:.3rem">
+          ${scenarioProjs.map(sc=>`<div style="display:flex;align-items:center;gap:.3rem"><span style="width:14px;height:2px;background:${sc.color};display:inline-block;border-radius:1px;flex-shrink:0"></span><span style="font-size:.43rem;color:var(--t3)">${sc.label} <span style="color:rgba(255,255,255,.4)">${sc.prob}</span> <b style="color:${sc.color}">¥${Math.round(sc.final/10000).toLocaleString()}万</b></span></div>`).join('')}
+          <div style="display:flex;align-items:center;gap:.3rem"><span style="width:14px;height:2px;background:#6abf8a;display:inline-block;border-radius:1px;flex-shrink:0"></span><span style="font-size:.43rem;color:var(--t3)">実績</span></div>
+          <div style="display:flex;align-items:center;gap:.3rem"><span style="width:7px;height:7px;border-radius:50%;background:var(--gold);display:inline-block;flex-shrink:0"></span><span style="font-size:.43rem;color:var(--t3)">現在</span></div>
         </div>`;
       })()}
     </div>`;
