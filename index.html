@@ -1655,58 +1655,59 @@ function renderAsset(){
       <div class="asset-tot-item"><div class="asset-l">損益</div><div class="asset-v asset-gain-line ${gainCls}">${gainSign}¥${totalGain.toLocaleString()}<span style="font-size:.5rem;margin-left:.2rem">(${gainSign}${gainPct}%)</span></div></div>
     </div>`;
 
-    // Target progress
-    const progPct=Math.min(100,(totalValue/TARGET)*100);
     html+=`<div class="asset-proj">
-      <div class="asset-proj-row"><span>目標（38歳）</span><b>¥${(TARGET/10000).toFixed(0)}万</b></div>
-      <div class="proj-bar-wrap"><div class="proj-bar" style="width:${progPct.toFixed(1)}%"></div></div>
-      <div class="asset-proj-row"><span>現在 <b style="color:var(--gold)">${progPct.toFixed(1)}%</b></span><span>残り <b>${yearsLeft.toFixed(1)}年</b></span></div>
+      <div class="asset-proj-row"><span style="font-size:.5rem;color:var(--t3)">予実グラフ（〜38歳）</span><span style="font-size:.5rem;color:var(--t3)">残り <b style="color:var(--t1)">${yearsLeft.toFixed(1)}年</b></span></div>
       ${(()=>{
-        // Projected trajectory (standard 12%→10%)
         const BIRTH=new Date('1996-06-01');
         const startAge=29;const endAge=38;const steps=endAge-startAge;
-        const baseSalary=9800000;const salaryStep=500000;const salaryCap=14000000;
-        const proj=[0];
-        let v=0;
-        for(let i=0;i<steps;i++){
-          const sal=Math.min(baseSalary+i*salaryStep,salaryCap);
-          const annualInvest=(sal*0.72/14-310000)*14;
-          const r=i<6?0.12:0.10;
-          v=v*(1+r)+annualInvest;
-          proj.push(v);
-        }
-        const maxV=Math.max(TARGET*1.1,...proj);
-        const W=280,H=90,PAD=4;
-        const toX=i=>PAD+i*(W-PAD*2)/steps;
-        const toY=v=>H-PAD-(v/(maxV))*(H-PAD*2);
-        // Projected line
-        const projPts=proj.map((v,i)=>`${toX(i)},${toY(v)}`).join(' ');
-        // Target line (horizontal at TARGET)
-        const ty=toY(TARGET);
-        // Actual points from history
+        const baseSalary=DB.assetConfig?.salary||9800000;
+        const salaryStep=500000;const salaryCap=14000000;
+        // 実績履歴
         const hist=(DB.assetHistory||[]).sort((a,b)=>a.date.localeCompare(b.date));
-        const actualPts=hist.map(h=>{
-          const age=(new Date(h.date)-BIRTH)/(365.25*86400000);
-          const x=PAD+(age-startAge)*(W-PAD*2)/steps;
-          const y=toY(h.value);
-          return `${x.toFixed(1)},${y.toFixed(1)}`;
-        }).join(' ');
-        // Age labels
-        const labels=[29,32,35,38].map(a=>`<text x="${toX(a-startAge)}" y="${H+2}" font-size="5" fill="rgba(255,255,255,.3)" text-anchor="middle">${a}</text>`).join('');
-        // Max label
-        const maxLbl=`<text x="${W-PAD}" y="${toY(maxV)+4}" font-size="5" fill="rgba(255,255,255,.2)" text-anchor="end">${Math.round(maxV/10000)}万</text>`;
-        const tgtLbl=`<text x="${W-PAD}" y="${ty-2}" font-size="5" fill="rgba(196,160,89,.5)" text-anchor="end">5,500万</text>`;
-        return `<svg width="100%" viewBox="0 0 ${W} ${H+8}" style="overflow:visible;margin-top:.4rem">
-          <line x1="${PAD}" y1="${ty}" x2="${W-PAD}" y2="${ty}" stroke="rgba(196,160,89,.25)" stroke-width="1" stroke-dasharray="3,3"/>
-          ${tgtLbl}
-          <polyline points="${projPts}" fill="none" stroke="rgba(196,160,89,.5)" stroke-width="1.5"/>
-          ${actualPts?`<polyline points="${actualPts}" fill="none" stroke="#6abf8a" stroke-width="2"/>`:'' }
-          ${hist.map(h=>{const age=(new Date(h.date)-BIRTH)/(365.25*86400000);const x=PAD+(age-startAge)*(W-PAD*2)/steps;const y=toY(h.value);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#6abf8a"/>`;}).join('')}
-          ${labels}${maxLbl}
+        // 現在値から先の予測ライン
+        const curAge=ageNow;
+        const curVal=totalValue;
+        const futureProj=[{age:curAge,value:curVal}];
+        let fv=curVal;
+        for(let y=0;y<10;y++){
+          const projAge=curAge+y;
+          if(projAge>=endAge)break;
+          const yearsSinceBase=Math.round(projAge-startAge);
+          const sal=Math.min(baseSalary+yearsSinceBase*salaryStep,salaryCap);
+          const annualInvest=Math.max(0,(sal*0.72/14-310000)*14);
+          const r=projAge<35?0.12:0.10;
+          fv=fv*(1+r)+annualInvest;
+          futureProj.push({age:projAge+1,value:fv});
+        }
+        const allVals=[...hist.map(h=>h.value),...futureProj.map(p=>p.value),TARGET];
+        const maxV=Math.max(...allVals)*1.05;
+        const W=280,H=100,PAD=6;
+        const toX=a=>PAD+(a-startAge)*(W-PAD*2)/steps;
+        const toY=v=>H-PAD-(v/maxV)*(H-PAD*2);
+        const ty=toY(TARGET);
+        // 将来予測ライン（現在値から）
+        const futurePts=futureProj.map(p=>`${toX(p.age).toFixed(1)},${toY(p.value).toFixed(1)}`).join(' ');
+        // 実績ライン
+        const actualPts=hist.length>=2?hist.map(h=>{const age=(new Date(h.date)-BIRTH)/(365.25*86400000);return `${toX(age).toFixed(1)},${toY(h.value).toFixed(1)}`;}).join(' '):'';
+        // Y軸ラベル
+        const yLabels=[0,2000,4000,6000].map(v=>`<text x="${PAD-1}" y="${toY(v*10000).toFixed(1)}" font-size="4.5" fill="rgba(255,255,255,.25)" text-anchor="end" dominant-baseline="middle">${v}</text>`).join('');
+        // X軸ラベル
+        const xLabels=[29,31,33,35,37,38].map(a=>`<text x="${toX(a).toFixed(1)}" y="${H+5}" font-size="4.5" fill="rgba(255,255,255,.3)" text-anchor="middle">${a}</text>`).join('');
+        // 現在位置マーカー
+        const nowX=toX(curAge);const nowY=toY(curVal);
+        return `<svg width="100%" viewBox="0 0 ${W} ${H+10}" style="overflow:visible;margin-top:.3rem">
+          <line x1="${PAD}" y1="${ty.toFixed(1)}" x2="${W-PAD}" y2="${ty.toFixed(1)}" stroke="rgba(196,160,89,.3)" stroke-width="1" stroke-dasharray="4,3"/>
+          <text x="${W-PAD}" y="${(ty-2).toFixed(1)}" font-size="4.5" fill="rgba(196,160,89,.6)" text-anchor="end">目標5,500万</text>
+          ${yLabels}${xLabels}
+          ${actualPts?`<polyline points="${actualPts}" fill="none" stroke="#6abf8a" stroke-width="2" stroke-linejoin="round"/>`:''}
+          ${hist.map(h=>{const age=(new Date(h.date)-BIRTH)/(365.25*86400000);return `<circle cx="${toX(age).toFixed(1)}" cy="${toY(h.value).toFixed(1)}" r="2.5" fill="#6abf8a"/>`;}).join('')}
+          <polyline points="${futurePts}" fill="none" stroke="rgba(196,160,89,.7)" stroke-width="1.5" stroke-dasharray="5,3" stroke-linejoin="round"/>
+          <circle cx="${nowX.toFixed(1)}" cy="${nowY.toFixed(1)}" r="3.5" fill="var(--gold)" stroke="var(--bg)" stroke-width="1.5"/>
         </svg>
-        <div style="display:flex;gap:.8rem;margin-top:.15rem">
-          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:12px;height:2px;background:rgba(196,160,89,.5);display:inline-block;border-radius:1px"></span>予測</div>
-          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:12px;height:2px;background:#6abf8a;display:inline-block;border-radius:1px"></span>実績</div>
+        <div style="display:flex;gap:.8rem;margin-top:.2rem">
+          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:14px;height:2px;background:rgba(196,160,89,.7);display:inline-block;border-radius:1px;border-top:1px dashed rgba(196,160,89,.7)"></span>今後の予測</div>
+          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:14px;height:2px;background:#6abf8a;display:inline-block;border-radius:1px"></span>実績</div>
+          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:7px;height:7px;border-radius:50%;background:var(--gold);display:inline-block"></span>現在</div>
         </div>`;
       })()}
     </div>`;
