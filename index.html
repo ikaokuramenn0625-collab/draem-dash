@@ -1642,28 +1642,25 @@ function renderAsset(){
   // Salary input + monthly recommendation
   const inv=calcMonthlyInvest(salary);
   const monthlyInvest=inv.monthly;
-  // ポートフォリオ比率で各ファンドの目標額を計算
+  // ポートフォリオ比率で各ファンドの目標額 + NISA枠内訳を計算
   const TSUMITATE_MAX=100000;const SEICH_MAX=200000;
   const fundTargets=portfolio.map(p=>({name:p.name,target:Math.round(monthlyInvest*p.pct/100),color:PALETTE[portfolio.indexOf(p)%PALETTE.length]}));
-  // 積立枠・成長枠・特定口座に比率通りに振り分け
-  const nisaRows=[];
-  let tsumitateLeft=TSUMITATE_MAX,seichLeft=SEICH_MAX;
-  const tsumitateItems=[],seichItems=[],tokuteiItems=[];
-  fundTargets.forEach(f=>{
-    let rem=f.target;
-    const ta=Math.min(rem,tsumitateLeft);
-    if(ta>0){tsumitateItems.push({name:f.name,amount:ta,color:f.color});tsumitateLeft-=ta;rem-=ta;}
-    const sa=Math.min(rem,seichLeft);
-    if(sa>0){seichItems.push({name:f.name,amount:sa,color:f.color});seichLeft-=sa;rem-=sa;}
-    if(rem>0)tokuteiItems.push({name:f.name,amount:rem,color:f.color});
-  });
-  const fmtItems=items=>items.map(i=>`${i.name} ¥${i.amount.toLocaleString()}`).join(' + ');
-  if(tsumitateItems.length)nisaRows.push({label:'積立投資枠',max:'上限10万/月',amount:tsumitateItems.reduce((a,i)=>a+i.amount,0),detail:fmtItems(tsumitateItems),color:tsumitateItems[0].color});
-  if(seichItems.length)nisaRows.push({label:'成長投資枠',max:'上限20万/月',amount:seichItems.reduce((a,i)=>a+i.amount,0),detail:fmtItems(seichItems),color:seichItems[0].color});
-  if(tokuteiItems.length)nisaRows.push({label:'特定口座',max:'',amount:tokuteiItems.reduce((a,i)=>a+i.amount,0),detail:fmtItems(tokuteiItems),color:PALETTE[2]});
+  const bonusTargets=portfolio.map(p=>({name:p.name,target:Math.round(inv.bonus*p.pct/100)}));
+  function calcFundNisa(targets){
+    const nisa=targets.map(()=>({tsumitate:0,seichi:0,tokutei:0}));
+    let tl=TSUMITATE_MAX,sl=SEICH_MAX;
+    targets.forEach((f,fi)=>{let rem=f.target;const ta=Math.min(rem,tl);if(ta>0){nisa[fi].tsumitate=ta;tl-=ta;rem-=ta;}const sa=Math.min(rem,sl);if(sa>0){nisa[fi].seichi=sa;sl-=sa;rem-=sa;}if(rem>0)nisa[fi].tokutei=rem;});
+    return nisa;
+  }
+  const fundNisa=calcFundNisa(fundTargets);
+  const fundNisaBonus=calcFundNisa(bonusTargets);
+  function nisaTags(n){const t=[];if(n.tsumitate>0)t.push(`<span style="color:rgba(106,191,138,.8)">積立 ¥${n.tsumitate.toLocaleString()}</span>`);if(n.seichi>0)t.push(`<span style="color:rgba(126,184,212,.8)">成長 ¥${n.seichi.toLocaleString()}</span>`);if(n.tokutei>0)t.push(`<span style="color:rgba(255,255,255,.4)">特定 ¥${n.tokutei.toLocaleString()}</span>`);return t.join(' ');};
   let html=`<div class="asset-salary-row"><span style="font-size:.5rem;color:var(--t3);white-space:nowrap">年収</span><input class="asset-salary-inp" id="assetSalaryInp" type="number" value="${salary}" placeholder="9800000"><span style="font-size:.5rem;color:var(--t3);white-space:nowrap">円</span></div>`;
-  html+=`<div class="asset-monthly"><div><div class="asset-monthly-l">推奨投資額</div><div class="asset-monthly-v">¥${inv.annual.toLocaleString()}<span style="font-size:.5rem;font-weight:400;color:var(--t3)">/年</span></div><div style="font-size:.45rem;color:var(--t3);margin-top:.15rem">通常月 ¥${inv.monthly.toLocaleString()}×12 + ボーナス ¥${inv.bonus.toLocaleString()}×2</div></div><div style="display:flex;align-items:center;gap:.5rem">${donutChart(portfolio)}<div>${portfolio.map((p,i)=>`<div style="display:flex;align-items:center;gap:.3rem;margin-bottom:.2rem"><span style="width:7px;height:7px;border-radius:2px;background:${PALETTE[i%PALETTE.length]};flex-shrink:0;display:inline-block"></span><span style="font-size:.48rem;color:var(--t2)">${p.name} ${p.pct}%</span><span style="font-size:.48rem;color:var(--gold);font-weight:700">¥${Math.round(monthlyInvest*p.pct/100).toLocaleString()}</span></div>`).join('')}</div></div></div>`;
-  html+=`<div style="background:var(--s1);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:.45rem .6rem;margin:.3rem 0">${nisaRows.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:.2rem 0;border-bottom:1px solid rgba(255,255,255,.04)"><div style="display:flex;align-items:center;gap:.3rem"><span style="width:6px;height:6px;border-radius:1px;background:${r.color};flex-shrink:0;display:inline-block"></span><div><div style="font-size:.52rem;font-weight:600;color:var(--t1)">${r.label}</div><div style="font-size:.45rem;color:var(--t3)">${r.detail}${r.max?' · '+r.max:''}</div></div></div><div style="font-size:.65rem;font-weight:700;color:var(--gold)">¥${r.amount.toLocaleString()}</div></div>`).join('')}</div>`;
+  html+=`<div class="asset-monthly"><div><div class="asset-monthly-l">推奨投資額</div><div class="asset-monthly-v">¥${inv.annual.toLocaleString()}<span style="font-size:.5rem;font-weight:400;color:var(--t3)">/年</span></div><div style="font-size:.45rem;color:var(--t3);margin-top:.15rem">通常月 ¥${inv.monthly.toLocaleString()}×12 + ボーナス ¥${inv.bonus.toLocaleString()}×2</div></div><div style="display:flex;align-items:center;gap:.5rem">${donutChart(portfolio)}<div>${portfolio.map((p,i)=>{
+    const amount=Math.round(monthlyInvest*p.pct/100);
+    const bAmount=Math.round(inv.bonus*p.pct/100);
+    return `<div style="margin-bottom:.35rem"><div style="display:flex;align-items:center;gap:.3rem"><span style="width:7px;height:7px;border-radius:2px;background:${PALETTE[i%PALETTE.length]};flex-shrink:0;display:inline-block"></span><span style="font-size:.48rem;color:var(--t2)">${p.name} ${p.pct}%</span></div><div style="font-size:.42rem;padding-left:1rem;margin-top:.1rem;line-height:1.6"><div><span style="color:var(--t3)">通常 </span><span style="color:var(--gold)">¥${amount.toLocaleString()}</span>　${nisaTags(fundNisa[i])}</div><div><span style="color:var(--t3)">ボーナス </span><span style="color:var(--gold)">¥${bAmount.toLocaleString()}</span>　${nisaTags(fundNisaBonus[i])}</div></div></div>`;
+  }).join('')}</div></div></div>`;
 
   if(funds.length===0){
     html+=`<div class="asset-empty">SBIのCSVをインポートすると<br>ポートフォリオが表示されます</div>`;
