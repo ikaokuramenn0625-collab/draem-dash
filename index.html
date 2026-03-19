@@ -1606,7 +1606,7 @@ function parseSBICSV(buf){
 }
 
 function calcMonthlyInvest(salary){
-  const takeHome=salary*0.72/12;
+  const takeHome=salary*0.72/14;
   return Math.max(0,Math.round(takeHome-310000));
 }
 
