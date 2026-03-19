@@ -1620,12 +1620,25 @@ function renderAsset(){
   const TARGET=55000000;
 
   // Portfolio allocation by age
+  const PALETTE=['#C4A059','#6abf8a','#7EB8D4','#D4896A'];
   const portfolio=ageNow<35?[{name:'NASDAQ100',pct:70},{name:'FANG+',pct:30}]:ageNow<38?[{name:'オルカン',pct:50},{name:'NASDAQ100',pct:50}]:[{name:'オルカン',pct:70},{name:'債券',pct:30}];
+
+  // Donut chart SVG
+  function donutChart(items,size=72){
+    const R=28,cx=size/2,cy=size/2,circ=2*Math.PI*R;
+    let offset=0,segs='';
+    items.forEach((item,i)=>{
+      const len=circ*item.pct/100;
+      segs+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${PALETTE[i]}" stroke-width="10" stroke-dasharray="${len} ${circ-len}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;
+      offset+=len;
+    });
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${segs}<circle cx="${cx}" cy="${cy}" r="18" fill="var(--bg)"/></svg>`;
+  }
 
   // Salary input + monthly recommendation
   const monthlyInvest=calcMonthlyInvest(salary);
   let html=`<div class="asset-salary-row"><span style="font-size:.5rem;color:var(--t3);white-space:nowrap">年収</span><input class="asset-salary-inp" id="assetSalaryInp" type="number" value="${salary}" placeholder="9800000"><span style="font-size:.5rem;color:var(--t3);white-space:nowrap">円</span></div>`;
-  html+=`<div class="asset-monthly"><div><div class="asset-monthly-l">今月の推奨投資額</div><div class="asset-monthly-v">¥${monthlyInvest.toLocaleString()}<span style="font-size:.5rem;font-weight:400;color:var(--t3)">/月</span></div></div><div style="text-align:right">${portfolio.map(p=>`<div style="font-size:.5rem;color:var(--t3)">${p.name} <b style="color:var(--gold)">¥${Math.round(monthlyInvest*p.pct/100).toLocaleString()}</b></div>`).join('')}</div></div>`;
+  html+=`<div class="asset-monthly"><div><div class="asset-monthly-l">今月の推奨投資額</div><div class="asset-monthly-v">¥${monthlyInvest.toLocaleString()}<span style="font-size:.5rem;font-weight:400;color:var(--t3)">/月</span></div></div><div style="display:flex;align-items:center;gap:.5rem">${donutChart(portfolio)}<div>${portfolio.map((p,i)=>`<div style="display:flex;align-items:center;gap:.3rem;margin-bottom:.2rem"><span style="width:7px;height:7px;border-radius:2px;background:${PALETTE[i]};flex-shrink:0;display:inline-block"></span><span style="font-size:.48rem;color:var(--t2)">${p.name} ${p.pct}%</span><span style="font-size:.48rem;color:var(--gold);font-weight:700">¥${Math.round(monthlyInvest*p.pct/100).toLocaleString()}</span></div>`).join('')}</div></div></div>`;
 
   if(funds.length===0){
     html+=`<div class="asset-empty">SBIのCSVをインポートすると<br>ポートフォリオが表示されます</div>`;
