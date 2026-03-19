@@ -692,6 +692,19 @@ if(!(DB.recurring||[]).find(r=>r.text==='🏊 水泳（夕食前）')){
 }
 processRecurring();
 
+// ── Recurring task dedup (same text + same created date → keep only one) ──
+(()=>{
+  const seen=new Set();
+  const before=DB.tasks.length;
+  DB.tasks=DB.tasks.filter(t=>{
+    if(!t.recurring)return true;
+    const key=t.text+'|'+t.created;
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  });
+  if(DB.tasks.length<before)save();
+})();
+
 // ── Gist Sync (robust) ──
 const GK='draem_gist';
 let lastSyncHash='',syncBusy=false;
