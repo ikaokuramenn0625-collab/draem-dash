@@ -484,6 +484,7 @@ if(!DB.weeklyLog)DB.weeklyLog=[];     // [{weekStart,totalSec,byCat,kpi}]
 if(!DB.suggestionLog)DB.suggestionLog=[]; // [{id,date,text,type,context,effective,evaluatedDate}]
 if(!DB.snsLog)DB.snsLog=[];           // [{weekStart,x,nn}] X/ニコニコ投稿数
 if(!DB.assetPortfolio)DB.assetPortfolio=[];  // [{name,cost,value,gain,section,importDate}]
+if(!DB.assetHistory)DB.assetHistory=[];      // [{date,value}]
 if(!DB.assetConfig)DB.assetConfig={salary:9800000};
 function SONGS(){return DB.songs||DEF_SONGS;}
 
@@ -1660,6 +1661,54 @@ function renderAsset(){
       <div class="asset-proj-row"><span>目標（38歳）</span><b>¥${(TARGET/10000).toFixed(0)}万</b></div>
       <div class="proj-bar-wrap"><div class="proj-bar" style="width:${progPct.toFixed(1)}%"></div></div>
       <div class="asset-proj-row"><span>現在 <b style="color:var(--gold)">${progPct.toFixed(1)}%</b></span><span>残り <b>${yearsLeft.toFixed(1)}年</b></span></div>
+      ${(()=>{
+        // Projected trajectory (standard 12%→10%)
+        const BIRTH=new Date('1996-06-01');
+        const startAge=29;const endAge=38;const steps=endAge-startAge;
+        const baseSalary=9800000;const salaryStep=500000;const salaryCap=14000000;
+        const proj=[0];
+        let v=0;
+        for(let i=0;i<steps;i++){
+          const sal=Math.min(baseSalary+i*salaryStep,salaryCap);
+          const annualInvest=(sal*0.72/14-310000)*14;
+          const r=i<6?0.12:0.10;
+          v=v*(1+r)+annualInvest;
+          proj.push(v);
+        }
+        const maxV=Math.max(TARGET*1.1,...proj);
+        const W=280,H=90,PAD=4;
+        const toX=i=>PAD+i*(W-PAD*2)/steps;
+        const toY=v=>H-PAD-(v/(maxV))*(H-PAD*2);
+        // Projected line
+        const projPts=proj.map((v,i)=>`${toX(i)},${toY(v)}`).join(' ');
+        // Target line (horizontal at TARGET)
+        const ty=toY(TARGET);
+        // Actual points from history
+        const hist=(DB.assetHistory||[]).sort((a,b)=>a.date.localeCompare(b.date));
+        const actualPts=hist.map(h=>{
+          const age=(new Date(h.date)-BIRTH)/(365.25*86400000);
+          const x=PAD+(age-startAge)*(W-PAD*2)/steps;
+          const y=toY(h.value);
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        // Age labels
+        const labels=[29,32,35,38].map(a=>`<text x="${toX(a-startAge)}" y="${H+2}" font-size="5" fill="rgba(255,255,255,.3)" text-anchor="middle">${a}</text>`).join('');
+        // Max label
+        const maxLbl=`<text x="${W-PAD}" y="${toY(maxV)+4}" font-size="5" fill="rgba(255,255,255,.2)" text-anchor="end">${Math.round(maxV/10000)}万</text>`;
+        const tgtLbl=`<text x="${W-PAD}" y="${ty-2}" font-size="5" fill="rgba(196,160,89,.5)" text-anchor="end">5,500万</text>`;
+        return `<svg width="100%" viewBox="0 0 ${W} ${H+8}" style="overflow:visible;margin-top:.4rem">
+          <line x1="${PAD}" y1="${ty}" x2="${W-PAD}" y2="${ty}" stroke="rgba(196,160,89,.25)" stroke-width="1" stroke-dasharray="3,3"/>
+          ${tgtLbl}
+          <polyline points="${projPts}" fill="none" stroke="rgba(196,160,89,.5)" stroke-width="1.5"/>
+          ${actualPts?`<polyline points="${actualPts}" fill="none" stroke="#6abf8a" stroke-width="2"/>`:'' }
+          ${hist.map(h=>{const age=(new Date(h.date)-BIRTH)/(365.25*86400000);const x=PAD+(age-startAge)*(W-PAD*2)/steps;const y=toY(h.value);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#6abf8a"/>`;}).join('')}
+          ${labels}${maxLbl}
+        </svg>
+        <div style="display:flex;gap:.8rem;margin-top:.15rem">
+          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:12px;height:2px;background:rgba(196,160,89,.5);display:inline-block;border-radius:1px"></span>予測</div>
+          <div style="display:flex;align-items:center;gap:.25rem;font-size:.45rem;color:var(--t3)"><span style="width:12px;height:2px;background:#6abf8a;display:inline-block;border-radius:1px"></span>実績</div>
+        </div>`;
+      })()}
     </div>`;
 
     // Funds by section
@@ -2048,6 +2097,10 @@ $('#assetCsvInput').addEventListener('change',e=>{
       const funds=parseSBICSV(ev.target.result);
       if(!funds.length){showAlert('ファンドデータが見つかりませんでした');return;}
       DB.assetPortfolio=funds;
+      const totalVal=funds.reduce((a,f)=>a+f.value,0);
+      if(!DB.assetHistory)DB.assetHistory=[];
+      const existing=DB.assetHistory.find(h=>h.date===todayStr);
+      if(existing)existing.value=totalVal;else DB.assetHistory.push({date:todayStr,value:totalVal});
       save();renderAsset();
       showAlert(`${funds.length}件のファンドを取込みました`);
     }catch(err){showAlert('CSVの読み込みに失敗しました');}
