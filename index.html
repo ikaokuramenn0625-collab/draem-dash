@@ -1736,6 +1736,17 @@ function renderAsset(){
           ${scenarioProjs.map(sc=>`<div style="display:flex;align-items:center;gap:.3rem"><span style="width:14px;height:2px;background:${sc.color};display:inline-block;border-radius:1px;flex-shrink:0"></span><span style="font-size:.43rem;color:var(--t3)">${sc.label} <span style="color:rgba(255,255,255,.4)">${sc.prob}</span> <b style="color:${sc.color}">¥${Math.round(sc.final/10000).toLocaleString()}万</b></span></div>`).join('')}
           <div style="display:flex;align-items:center;gap:.3rem"><span style="width:14px;height:2px;background:#6abf8a;display:inline-block;border-radius:1px;flex-shrink:0"></span><span style="font-size:.43rem;color:var(--t3)">実績</span></div>
           <div style="display:flex;align-items:center;gap:.3rem"><span style="width:7px;height:7px;border-radius:50%;background:var(--gold);display:inline-block;flex-shrink:0"></span><span style="font-size:.43rem;color:var(--t3)">現在</span></div>
+        </div>
+        <div style="margin-top:.4rem;padding:.35rem .5rem;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid rgba(255,255,255,.05)">
+          <div style="font-size:.42rem;color:var(--t3);margin-bottom:.25rem;letter-spacing:.06em;text-transform:uppercase">想定条件</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.15rem .4rem;font-size:.42rem;color:rgba(255,255,255,.45);line-height:1.6">
+            <div>年収 <span style="color:rgba(255,255,255,.7)">980万〜1,400万</span></div>
+            <div>昇給 <span style="color:rgba(255,255,255,.7)">+50万/年</span></div>
+            <div>投資 <span style="color:rgba(255,255,255,.7)">通常月+ボーナス全額</span></div>
+            <div>PF <span style="color:rgba(255,255,255,.7)">NASDAQ70%+FANG+30%</span></div>
+            <div>標準利回り <span style="color:rgba(255,255,255,.7)">〜35歳 12% / 以降 10%</span></div>
+            <div>暴落想定 <span style="color:rgba(255,255,255,.7)">〜35歳 8% / 以降 6%</span></div>
+          </div>
         </div>`;
       })()}
     </div>`;
