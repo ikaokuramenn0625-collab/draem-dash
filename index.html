@@ -1649,7 +1649,9 @@ function renderAsset(){
   function calcFundNisa(targets){
     const nisa=targets.map(()=>({tsumitate:0,seichi:0,tokutei:0}));
     let tl=TSUMITATE_MAX,sl=SEICH_MAX;
-    targets.forEach((f,fi)=>{let rem=f.target;const ta=Math.min(rem,tl);if(ta>0){nisa[fi].tsumitate=ta;tl-=ta;rem-=ta;}const sa=Math.min(rem,sl);if(sa>0){nisa[fi].seichi=sa;sl-=sa;rem-=sa;}if(rem>0)nisa[fi].tokutei=rem;});
+    // FANG+(後ろのファンド=小さいpct)を積立枠に優先配分
+    const order=[...targets.keys()].reverse();
+    order.forEach(fi=>{let rem=targets[fi].target;const ta=Math.min(rem,tl);if(ta>0){nisa[fi].tsumitate=ta;tl-=ta;rem-=ta;}const sa=Math.min(rem,sl);if(sa>0){nisa[fi].seichi=sa;sl-=sa;rem-=sa;}if(rem>0)nisa[fi].tokutei=rem;});
     return nisa;
   }
   const fundNisa=calcFundNisa(fundTargets);
