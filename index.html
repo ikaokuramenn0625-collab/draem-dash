@@ -333,6 +333,9 @@ body{min-height:100dvh}
   <div class="sec" style="display:flex;justify-content:space-between;align-items:center">💹 資産 <div style="display:flex;gap:.3rem"><a href="https://site3.sbisec.co.jp/ETGate/?_ControlID=WPLETacR002Control&_PageID=DefaultPID&_DataStoreID=DSWPLETacR002Control&getFlg=on&_ActionID=DefaultAID" target="_blank" class="asset-import-btn" style="text-decoration:none">🏦 SBI</a><label class="asset-import-btn">📥 取込<input type="file" id="assetCsvInput" accept=".csv" style="display:none"></label></div></div>
   <div id="assetSection"></div>
 
+  <div class="sec">🎯 マイルール</div>
+  <div id="commitSection"></div>
+
   <div class="mission" id="mission"></div>
 
   <div class="ftr"><span id="ftr"></span> <span class="gear" id="gearBtn">⚙️</span></div>
@@ -486,6 +489,10 @@ if(!DB.snsLog)DB.snsLog=[];           // [{weekStart,x,nn}] X/ニコニコ投稿
 if(!DB.assetPortfolio)DB.assetPortfolio=[];  // [{name,cost,value,gain,section,importDate}]
 if(!DB.assetHistory)DB.assetHistory=[];      // [{date,value}]
 if(!DB.assetConfig)DB.assetConfig={salary:9800000};
+if(!DB.commitments)DB.commitments=[
+  {id:'plugin',text:'JBGで使うプラグインのみ購入',freq:'monthly',deadline:'2027-09',history:[]},
+  {id:'vending',text:'平日、自動販売機で飲み物を買わない',freq:'weekly',deadline:null,history:[]},
+];
 function SONGS(){return DB.songs||DEF_SONGS;}
 
 // ── Logging Engine ──
@@ -1577,6 +1584,7 @@ function render(){
 
   // Asset
   renderAsset();
+  renderCommitments();
 }
 
 // ── Asset Section ──
@@ -1612,6 +1620,63 @@ function calcMonthlyInvest(salary){
   const annual=Math.max(0,Math.round(salary*0.72-3720000));
   const monthly=Math.round(annual/12);
   return {monthly,annual};
+}
+
+function getWeekKey(d){const dt=new Date(d);const day=dt.getDay();const mon=new Date(dt);mon.setDate(dt.getDate()-(day===0?6:day-1));return mon.toISOString().slice(0,10);}
+function getMonthKey(d){return new Date(d).toISOString().slice(0,7);}
+
+function renderCommitments(){
+  const el=$('#commitSection');if(!el)return;
+  const commits=DB.commitments||[];
+  const todayKey=today.toISOString().slice(0,10);
+  const weekKey=getWeekKey(today);
+  const monthKey=getMonthKey(today);
+  let html='';
+  commits.forEach((c,ci)=>{
+    const key=c.freq==='weekly'?weekKey:monthKey;
+    const checked=c.history.find(h=>h.date===key);
+    const kept=checked?.kept;
+    // 残り期間
+    let deadlineStr='';
+    if(c.deadline){
+      const dl=new Date(c.deadline+'-01');
+      const diff=(dl-today)/(1000*60*60*24*30.4);
+      const mos=Math.max(0,Math.round(diff));
+      deadlineStr=`<span style="font-size:.42rem;color:rgba(255,255,255,.3)">残り${mos}ヶ月</span>`;
+    }
+    // 直近12件の履歴ドット
+    const recent=c.history.slice(-12);
+    const dots=recent.map(h=>`<span style="width:6px;height:6px;border-radius:50%;background:${h.kept?'#6abf8a':'#D47A6A'};display:inline-block"></span>`).join('');
+    // 達成率
+    const total=c.history.length;
+    const keptN=c.history.filter(h=>h.kept).length;
+    const rate=total>0?Math.round(keptN/total*100):'-';
+    html+=`<div style="background:var(--s1);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.5rem .7rem;margin:.3rem 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem">
+        <div>
+          <div style="font-size:.55rem;font-weight:600;color:var(--t1)">${c.text}</div>
+          <div style="font-size:.42rem;color:var(--t3);margin-top:.1rem">${c.freq==='weekly'?'週次':'月次'}チェック　${deadlineStr}</div>
+        </div>
+        <div style="font-size:.7rem;font-weight:700;color:${rate==='-'?'var(--t3)':rate>=80?'#6abf8a':rate>=50?'#C4A059':'#D47A6A'}">${rate}${rate==='-'?'':'%'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.3rem;margin-bottom:.4rem;flex-wrap:wrap">${dots||'<span style="font-size:.42rem;color:var(--t3)">履歴なし</span>'}</div>
+      ${checked?`<div style="font-size:.45rem;color:${kept?'#6abf8a':'#D47A6A'};text-align:center;padding:.25rem;background:rgba(255,255,255,.04);border-radius:6px">${kept?'✓ 守れた':'✗ 守れなかった'}（${c.freq==='weekly'?'今週':'今月'}記録済み）</div>`
+      :`<div style="display:flex;gap:.4rem">
+          <button class="commit-btn kept" data-ci="${ci}" data-key="${key}" data-kept="1" style="flex:1;padding:.35rem;border-radius:7px;border:1px solid #6abf8a;background:rgba(106,191,138,.1);color:#6abf8a;font-size:.52rem;cursor:pointer">✓ 守れた</button>
+          <button class="commit-btn broke" data-ci="${ci}" data-key="${key}" data-kept="0" style="flex:1;padding:.35rem;border-radius:7px;border:1px solid #D47A6A;background:rgba(212,122,106,.1);color:#D47A6A;font-size:.52rem;cursor:pointer">✗ 守れなかった</button>
+        </div>`}
+    </div>`;
+  });
+  el.innerHTML=html;
+  el.querySelectorAll('.commit-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      const ci=+btn.dataset.ci,key=btn.dataset.key,kept=btn.dataset.kept==='1';
+      const c=DB.commitments[ci];
+      c.history=c.history.filter(h=>h.date!==key);
+      c.history.push({date:key,kept});
+      saveDB();renderCommitments();
+    };
+  });
 }
 
 function renderAsset(){
