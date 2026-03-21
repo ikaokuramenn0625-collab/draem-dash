@@ -361,7 +361,8 @@ const DEF_SONGS=[
 ];
 const STAGES=['作曲','アレンジ','MIX','ボーカル','MV','リリース'];
 const CATS={song:'🎵作曲',mix:'🎛️MIX',mv:'🎬MV',vocal:'🎤ボーカル',sns:'📱SNS',release:'🚀リリース',learn:'📖学習',jbg:'🎓JBG',work:'💼コンサル',invest:'📈資産形成',life:'🏠生活',health:'🏃健康'};
-const DEF_GOALS={weeklyHours:5,yearSongs:10,subTarget:1000,playTarget:50000,revenueTarget:500000};
+const DEF_GOALS={weeklyHours:20,yearSongs:10,subTarget:1000,shortPlayTarget:100000,mainPlayTarget:50000,revenueTarget:500000};
+const MUSIC_CATS=['🎵作曲','🎛️MIX','🎬MV','🎤ボーカル','🚀リリース'];
 const DREAM_DATE=new Date('2029-02-11');
 const QUOTES=[
   '小さな一歩が、大きな変化を生む',
@@ -426,7 +427,7 @@ function calcRealProgress(){
 // ── DB ──
 const DB_KEY='draem_db';
 const DB_BACKUP_KEY='draem_db_backup';
-function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,songs:7,revenue:0},songStage:0,songStages:{},timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',songs:null,goals:null,recurring:[],apiSettings:{},ver:0}}
+function defDB(){return{tasks:[],days:[],kpi:{subscribers:4,total_plays:1002,short_plays:0,main_plays:1002,songs:7,revenue:0},songStage:0,songStages:{},timerStart:null,timerTotal:0,timerWeekStart:todayStr,mission:'2029年、音楽で生きる。\nそのために今日も1歩。',songs:null,goals:null,recurring:[],apiSettings:{},ver:0}}
 function loadDB(){
   try{
     const raw=localStorage.getItem(DB_KEY);
@@ -477,6 +478,8 @@ if(!DB.songStages)DB.songStages={};
 if(!DB.timerTotal)DB.timerTotal=0;
 if(!DB.songs)DB.songs=JSON.parse(JSON.stringify(DEF_SONGS));
 if(!DB.goals)DB.goals={...DEF_GOALS};
+if(DB.goals.weeklyHours<10)DB.goals.weeklyHours=20; // 旧デフォルト5hを20hに自動更新
+if(!DB.kpi.short_plays&&!DB.kpi.main_plays){DB.kpi.short_plays=0;DB.kpi.main_plays=DB.kpi.total_plays||0;}
 if(!DB.recurring)DB.recurring=[];
 if(!DB.compFlow)DB.compFlow={};
 if(!DB.reflections)DB.reflections=[];
@@ -951,6 +954,12 @@ function weekLogs(){
 function weekTotal(){
   return weekLogs().reduce((s,l)=>s+l.sec,0)+timerElapsed();
 }
+function musicWeekSec(){
+  const logs=weekLogs().filter(l=>MUSIC_CATS.some(mc=>l.cat&&l.cat.includes(mc)));
+  const sec=logs.reduce((s,l)=>s+l.sec,0);
+  const runningMusic=timerRunning()&&MUSIC_CATS.some(mc=>DB.timerCat&&DB.timerCat.includes(mc));
+  return sec+(runningMusic?timerElapsed():0);
+}
 function weekByCat(){
   const m={};
   weekLogs().forEach(l=>{m[l.cat]=(m[l.cat]||0)+l.sec;});
@@ -988,8 +997,8 @@ function setTimerCat(cat){
 
 function renderTimer(){
   const running=timerRunning();
-  const el=timerElapsed(),wt=weekTotal();
-  const goalH=(DB.goals||DEF_GOALS).weeklyHours;const pct=Math.min(100,wt/3600/goalH*100);
+  const el=timerElapsed(),wt=weekTotal(),mw=musicWeekSec();
+  const goalH=(DB.goals||DEF_GOALS).weeklyHours;const pct=Math.min(100,mw/3600/goalH*100);
   const sessionTime=running?el:0;
   const bc=weekByCat();
   const maxSec=Math.max(1,...Object.values(bc));
@@ -1005,7 +1014,7 @@ function renderTimer(){
     }).join('');
   }
 
-  $('#timerBox').innerHTML=`<div class="timer-row"><button class="timer-btn ${running?'running':''}" id="timerToggle">${running?'⏸':'▶'}</button><div class="timer-time">${fmtTime(sessionTime)}</div><div class="timer-info"><div class="timer-week">${running?'<b>'+DB.timerCat+'</b> 計測中':'今週 <b>'+fmtTime(wt)+'</b> / '+goalH+'h'}</div><div style="height:3px;border-radius:2px;background:var(--s1);margin-top:3px;overflow:hidden"><div style="height:100%;width:${pct}%;border-radius:2px;background:linear-gradient(90deg,var(--gd),var(--gold))"></div></div></div><div class="al-add-btn" id="timerManual" style="flex-shrink:0">✏️</div></div><div class="timer-cats">${catBtns}</div>${stats?'<div class="timer-stats">'+stats+'</div>':''}`;
+  $('#timerBox').innerHTML=`<div class="timer-row"><button class="timer-btn ${running?'running':''}" id="timerToggle">${running?'⏸':'▶'}</button><div class="timer-time">${fmtTime(sessionTime)}</div><div class="timer-info"><div class="timer-week">${running?'<b>'+DB.timerCat+'</b> 計測中':'音楽 <b>'+fmtTime(mw)+'</b> / '+goalH+'h'}</div><div style="height:3px;border-radius:2px;background:var(--s1);margin-top:3px;overflow:hidden"><div style="height:100%;width:${pct}%;border-radius:2px;background:linear-gradient(90deg,var(--gd),var(--gold))"></div></div></div><div class="al-add-btn" id="timerManual" style="flex-shrink:0">✏️</div></div><div class="timer-cats">${catBtns}</div>${stats?'<div class="timer-stats">'+stats+'</div>':''}`;
 
   $('#timerToggle').addEventListener('click',toggleTimer);
   $('#timerManual').addEventListener('click',()=>openModal('log'));
@@ -1881,10 +1890,10 @@ function showAlert(msg) {
 // ── Modals ──
 function openModal(type,extra){
   if(type==='kpi'){
-    const KD=[{k:'subscribers',l:'Subscribers'},{k:'total_plays',l:'Total Plays'},{k:'songs',l:'Songs'},{k:'revenue',l:'Revenue (¥)'}];
+    const KD=[{k:'subscribers',l:'Subscribers'},{k:'short_plays',l:'Shorts 再生数'},{k:'main_plays',l:'メイン動画 再生数'},{k:'songs',l:'Songs'},{k:'revenue',l:'Revenue (¥)'}];
     $('#mTitle').textContent='KPI 更新';
     $('#mFields').innerHTML=KD.map(d=>`<div class="mf"><label>${d.l}</label><input type="number" data-k="${d.k}" value="${DB.kpi[d.k]||0}"></div>`).join('');
-    $('#mSave').onclick=()=>{$('#mFields').querySelectorAll('input').forEach(i=>{DB.kpi[i.dataset.k]=+(i.value||0);});save();render();$('#modalBg').classList.remove('show');};
+    $('#mSave').onclick=()=>{$('#mFields').querySelectorAll('input').forEach(i=>{DB.kpi[i.dataset.k]=+(i.value||0);});DB.kpi.total_plays=(DB.kpi.short_plays||0)+(DB.kpi.main_plays||0);save();render();$('#modalBg').classList.remove('show');};
   }else if(type==='mission'){
     $('#mTitle').textContent='Mission';
     $('#mFields').innerHTML=`<div class="mf"><label>あなたのミッション</label><textarea id="missionText" rows="3">${esc(DB.mission||'')}</textarea></div><div style="font-size:.5rem;color:var(--t3)">1行目=メイン、2行目=サブ</div>`;
@@ -2304,7 +2313,8 @@ function buildWeeklySummary(){
   const S=SONGS();
   const wl=weekLogs();
   const pw=prevWeekLogs();
-  const thisTotal=wl.reduce((s,l)=>s+l.sec,0);
+  const thisTotal=wl.filter(l=>MUSIC_CATS.some(mc=>l.cat&&l.cat.includes(mc))).reduce((s,l)=>s+l.sec,0);
+  const thisTotalAll=wl.reduce((s,l)=>s+l.sec,0);
   const prevTotal=pw.reduce((s,l)=>s+l.sec,0);
   const bc=weekByCat();
   const released=S.filter(s=>s.status==='released').length;
@@ -2343,7 +2353,8 @@ function buildWeeklySummary(){
     `# dræm. 週次レビュー — ${todayStr} (Week ${Math.ceil(dayN/7)})`,
     ``,
     `## 今週の作業`,
-    `- 合計: ${fmtTime(thisTotal)} / 目標${G.weeklyHours}h`,
+    `- 音楽合計: ${fmtTime(thisTotal)} / 目標${G.weeklyHours}h`,
+    `- 全活動合計: ${fmtTime(thisTotalAll)} (コンサル・JBG含む)`,
     `- 先週比: ${prevTotal>0?(thisTotal>=prevTotal?'+':'')+Math.round((thisTotal-prevTotal)/Math.max(1,prevTotal)*100)+'%':'初週'}`,
     `- ストリーク: ${sk}日連続`,
     `- 気分: ${moodStr}`,
@@ -2357,7 +2368,9 @@ function buildWeeklySummary(){
     ``,
     `## KPI`,
     `- 登録者: ${(DB.kpi?.subscribers||0).toLocaleString()} / 目標${G.subTarget.toLocaleString()} (現ペース: ${pred.sub.fmt}後)`,
-    `- 再生数: ${(DB.kpi?.total_plays||0).toLocaleString()} / 目標${G.playTarget.toLocaleString()} (現ペース: ${pred.plays.fmt}後)`,
+    `- 再生数(Shorts): ${(DB.kpi?.short_plays||0).toLocaleString()} / 目標${(G.shortPlayTarget||100000).toLocaleString()}`,
+    `- 再生数(メイン): ${(DB.kpi?.main_plays||0).toLocaleString()} / 目標${(G.mainPlayTarget||50000).toLocaleString()}`,
+    `- 再生数(合計): ${(DB.kpi?.total_plays||0).toLocaleString()}`,
     `- 収益: ¥${(DB.kpi?.revenue||0).toLocaleString()} / 目標¥${G.revenueTarget.toLocaleString()}`,
     `- YouTube投稿(28日): ${DB.kpi?.ytUploads28d??'—'}本`,
     ``,
