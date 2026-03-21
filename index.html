@@ -497,7 +497,8 @@ if(!DB.commitments)DB.commitments=[
 function SONGS(){return DB.songs||DEF_SONGS;}
 
 // ── Logging Engine ──
-function getWeekStart(){const d=new Date(today);d.setDate(d.getDate()-dayOfWeek);return d.toISOString().slice(0,10);}
+function localDateStr(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function getWeekStart(){const d=new Date(today);d.setDate(d.getDate()-dayOfWeek);return localDateStr(d);}
 
 function snapshotIfNeeded(){
   const ws=getWeekStart();
@@ -944,7 +945,7 @@ function fmtTime(s){const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h>
 
 function weekLogs(){
   const d=new Date(today);d.setDate(d.getDate()-d.getDay());
-  const ws=d.toISOString().slice(0,10);
+  const ws=localDateStr(d);
   return (DB.timerLog||[]).filter(l=>l.date>=ws);
 }
 function weekTotal(){
@@ -1623,7 +1624,7 @@ function calcMonthlyInvest(salary){
   return {monthly,annual};
 }
 
-function getWeekKey(d){const dt=new Date(d);const day=dt.getDay();const mon=new Date(dt);mon.setDate(dt.getDate()-(day===0?6:day-1));return mon.toISOString().slice(0,10);}
+function getWeekKey(d){const dt=new Date(d);const day=dt.getDay();const mon=new Date(dt);mon.setDate(dt.getDate()-(day===0?6:day-1));return localDateStr(mon);}
 function getMonthKey(d){return new Date(d).toISOString().slice(0,7);}
 
 function renderCommitments(){
