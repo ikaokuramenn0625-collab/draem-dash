@@ -790,7 +790,7 @@ function mergeDB(remote){
   if(daySet.size!==(local.days||[]).length){local.days=[...daySet].sort();changed=true;}
 
   // KPI: take higher values (more recent data)
-  ['subscribers','total_plays','songs','revenue'].forEach(k=>{
+  ['subscribers','total_plays','short_plays','main_plays','songs','revenue'].forEach(k=>{
     if((remote.kpi?.[k]||0)>(local.kpi?.[k]||0)){local.kpi[k]=remote.kpi[k];changed=true;}
   });
 
