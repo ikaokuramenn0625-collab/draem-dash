@@ -917,14 +917,17 @@ async function fetchYT(){
         const vd=await vr.json();
         const ids=(vd.items||[]).map(v=>v.id?.videoId).filter(Boolean);
         if(ids.length>0){
-          const dr=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${ids.join(',')}&key=${c.apiKey}`);
+          const dr=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics,snippet&id=${ids.join(',')}&key=${c.apiKey}`);
           if(dr.ok){
             const dd=await dr.json();
             let shortViews=0,mainViews=0;
             (dd.items||[]).forEach(v=>{
               const secs=parseDuration(v.contentDetails?.duration);
               const views=+(v.statistics?.viewCount||0);
-              if(secs<=60)shortViews+=views;else mainViews+=views;
+              const desc=(v.snippet?.description||'').toLowerCase();
+              const tags=(v.snippet?.tags||[]).join(' ').toLowerCase();
+              const isShort=secs<=180&&(secs<=60||desc.includes('#shorts')||tags.includes('shorts'));
+              if(isShort)shortViews+=views;else mainViews+=views;
             });
             DB.kpi.short_plays=shortViews;
             DB.kpi.main_plays=mainViews;
