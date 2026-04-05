@@ -208,6 +208,22 @@ body{min-height:100dvh}
 
 .ftr{text-align:center;margin-top:.8rem;font-size:.45rem;color:rgba(255,255,255,.12)}
 .gear{cursor:pointer;font-size:.6rem;color:var(--t3);padding:.15rem}
+.quick-settings{
+  position:fixed;
+  right:14px;
+  bottom:calc(14px + env(safe-area-inset-bottom));
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  border:1px solid rgba(196,160,89,.35);
+  background:rgba(13,9,6,.92);
+  color:var(--gold);
+  font-size:1rem;
+  z-index:420;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+.quick-settings:active{opacity:.7}
 
 /* Activity Log */
 .al-week{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.35rem}
@@ -258,7 +274,7 @@ body{min-height:100dvh}
     <div class="logo">dræm.<span class="sync-dot" id="syncDot"></span></div>
     <div style="display:flex;align-items:baseline;gap:.4rem">
       <button class="refresh-btn" id="btnRefresh">⟳</button>
-      <button class="hdr-btn" id="headerSettingsBtn" title="設定">⚙️</button>
+      <button class="hdr-btn" id="headerSettingsBtn" title="設定" onclick="window.__openSettings&&window.__openSettings()">⚙️</button>
       <div class="zoom"><button class="zoom-btn" id="zoomOut">A-</button><button class="zoom-btn" id="zoomIn">A+</button></div>
       <div class="day-b" id="dayB"></div>
     </div>
@@ -340,8 +356,9 @@ body{min-height:100dvh}
 
   <div class="mission" id="mission"></div>
 
-  <div class="ftr"><span id="ftr"></span> <span class="gear" id="gearBtn">⚙️</span></div>
+  <div class="ftr"><span id="ftr"></span> <span class="gear" id="gearBtn" onclick="window.__openSettings&&window.__openSettings()">⚙️</span></div>
 </div>
+<button class="quick-settings" id="quickSettingsBtn" title="設定" onclick="window.__openSettings&&window.__openSettings()">⚙️</button>
 
 <div id="undoToast" style="display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:.4rem .9rem;font-size:.55rem;color:var(--t1);gap:.8rem;align-items:center;z-index:300;box-shadow:0 4px 16px rgba(0,0,0,.5);white-space:nowrap"><span id="undoMsg"></span><span id="undoBtn" style="color:var(--gold);cursor:pointer;font-weight:700">↩ 取り消し</span></div>
 
@@ -2300,8 +2317,12 @@ function submitTask(){addTask($('#taskInp').value,$('#catSel').value,$('#dueSel'
 $('#taskBtn').addEventListener('click',submitTask);
 $('#taskInp').addEventListener('keydown',e=>{if(e.key==='Enter')submitTask();});
 $('#btnRecurringTask').addEventListener('click',()=>openModal('recurring'));
-const _gearBtn=$('#gearBtn');if(_gearBtn)_gearBtn.addEventListener('click',()=>openModal('sync'));
-const _headerSettingsBtn=$('#headerSettingsBtn');if(_headerSettingsBtn)_headerSettingsBtn.addEventListener('click',()=>openModal('sync'));
+function openSettingsModal(){openModal('sync');}
+window.__openSettings=openSettingsModal;
+['gearBtn','headerSettingsBtn','quickSettingsBtn'].forEach(id=>{
+  const el=$('#'+id);
+  if(el)el.addEventListener('click',openSettingsModal);
+});
 
 // SBI CSV import
 $('#assetCsvInput').addEventListener('change',e=>{
