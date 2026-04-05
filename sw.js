@@ -1,6 +1,6 @@
-const V='v99';
+const V='v100';
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(V).then(c=>c.addAll(['./index.html','./',])));
+  e.waitUntil(caches.open(V).then(c=>c.addAll(['./index.html','./','./manifest.json'])));
   self.skipWaiting();
 });
 self.addEventListener('activate',e=>{
@@ -12,12 +12,22 @@ self.addEventListener('fetch',e=>{
   const url=new URL(e.request.url);
   // GitHub API などの外部リクエストはスルー
   if(url.origin!==location.origin)return;
-  // キャッシュファースト + バックグラウンド更新（stale-while-revalidate）
+  const isHTML=e.request.mode==='navigate'||url.pathname.endsWith('/')||url.pathname.endsWith('/index.html');
+  if(isHTML){
+    // HTML はネット優先（更新を最速反映）
+    e.respondWith(
+      fetch(e.request)
+        .then(r=>caches.open(V).then(cache=>{cache.put('./index.html',r.clone());return r;}))
+        .catch(()=>caches.match('./index.html').then(r=>r||caches.match('./')))
+    );
+    return;
+  }
+  // JS/CSS/画像はキャッシュ優先 + 裏で更新
   e.respondWith(
     caches.open(V).then(cache=>
       cache.match(e.request).then(cached=>{
-        const fresh=fetch(e.request).then(r=>{cache.put(e.request,r.clone());return r;});
-        return cached||fresh; // キャッシュあれば即返す、なければネット待ち
+        const fresh=fetch(e.request).then(r=>{cache.put(e.request,r.clone());return r;}).catch(()=>cached);
+        return cached||fresh;
       })
     )
   );
