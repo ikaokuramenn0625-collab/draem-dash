@@ -1,4 +1,4 @@
-const V='v102';
+const V='v103';
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(V).then(c=>c.addAll(['./index.html','./','./manifest.json','./music-hub.html'])));
   self.skipWaiting();

@@ -362,6 +362,7 @@ a.inline-link{color:var(--gold-2)}
       <div class="actions">
         <div class="status" id="syncStatus">local only</div>
         <button class="icon-btn" id="refreshBtn" title="同期">↻</button>
+        <button class="icon-btn" id="pushBtn" title="送信">⇪</button>
       </div>
     </div>
 
@@ -519,6 +520,12 @@ const PHASES = ["企画","作曲","アレンジ","仮歌","制作","MV","配信"
 const DEFAULT_DB = {
   ver: 1,
   updated: "",
+  meta: {
+    lastPulledAt: "",
+    lastPushedAt: "",
+    lastRemoteUpdated: "",
+    deviceId: ""
+  },
   mission: "まずは音楽活動を前に進める",
   focus: "",
   oneThing: "",
@@ -542,6 +549,7 @@ const DEFAULT_DB = {
 
 let DB = loadDB();
 let pushTimer = null;
+let syncBusy = false;
 
 function uid(){
   return `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
@@ -559,6 +567,11 @@ function mergeDB(remote){
   if(!remote || typeof remote !== "object") return DB;
   const merged = deepClone(DB);
   const incoming = {...deepClone(DEFAULT_DB), ...remote};
+  merged.meta = {
+    ...deepClone(DEFAULT_DB.meta),
+    ...(merged.meta || {}),
+    ...(incoming.meta || {})
+  };
 
   ["mission","focus","oneThing"].forEach(key=>{
     if((incoming.updated || "") >= (merged.updated || "") && incoming[key] !== undefined){
@@ -611,6 +624,10 @@ function loadDB(){
   const loaded = fromStorage || fromCookie || {};
   const db = {...base, ...loaded};
   db.currentSong = {...base.currentSong, ...(loaded.currentSong || {})};
+  db.meta = {
+    ...deepClone(DEFAULT_DB.meta),
+    ...(loaded.meta || {})
+  };
   db.projects = Array.isArray(loaded.projects) ? loaded.projects : [];
   db.empireQueue = Array.isArray(loaded.empireQueue) ? loaded.empireQueue : [];
   db.risks = Array.isArray(loaded.risks) ? loaded.risks : [];
@@ -627,17 +644,22 @@ function loadDB(){
 function saveDB(push = true){
   DB.ver = Number(DB.ver || 1) + 1;
   DB.updated = nowISO();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
-  writeCookie(COOKIE_KEY, JSON.stringify(DB), 400);
-  updateStatus();
-  render();
+  persistState();
   if(push) syncPush();
 }
 
 function overwriteData(data){
   DB = {...deepClone(DEFAULT_DB), ...data};
   DB.currentSong = {...deepClone(DEFAULT_DB.currentSong), ...(data.currentSong || {})};
+  DB.meta = {...deepClone(DEFAULT_DB.meta), ...(data.meta || {})};
   saveDB(false);
+  render();
+}
+
+function persistState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+  writeCookie(COOKIE_KEY, JSON.stringify(DB), 400);
+  updateStatus();
   render();
 }
 
@@ -661,8 +683,9 @@ function gc(){
 }
 
 function restoreApiFromDB(){
-  document.getElementById("gistIdInput").value = gc().id || "";
-  document.getElementById("gistTokenInput").value = gc().token || "";
+  const gist = gc();
+  document.getElementById("gistIdInput").value = gist.id || "";
+  document.getElementById("gistTokenInput").value = gist.token || "";
 }
 
 async function syncPush(immediate = false){
@@ -672,13 +695,19 @@ async function syncPush(immediate = false){
     updateStatus("waiting");
     return;
   }
+  if(syncBusy) return;
+  syncBusy = true;
   const gist = gc();
   if(!gist.token) {
     updateStatus("local");
+    syncBusy = false;
     return;
   }
   try{
     updateStatus("syncing");
+    if(gist.id){
+      await syncPull({ persist: false, quiet: true, skipPush: true });
+    }
     let gistId = gist.id;
     const body = {
       description: "dræm. music hub sync",
@@ -695,13 +724,15 @@ async function syncPush(immediate = false){
           "Authorization":`Bearer ${gist.token}`,
           "Accept":"application/vnd.github+json"
         },
+        cache:"no-store",
         body: JSON.stringify(body)
       });
       if(!res.ok) throw new Error("Gist作成に失敗");
       const json = await res.json();
       gistId = json.id;
       DB.apiSettings.gist.id = gistId;
-      saveDB(false);
+      DB.meta.lastPushedAt = nowISO();
+      persistState();
       restoreApiFromDB();
     }else{
       const res = await fetch(`https://api.github.com/gists/${gistId}`, {
@@ -711,27 +742,35 @@ async function syncPush(immediate = false){
           "Authorization":`Bearer ${gist.token}`,
           "Accept":"application/vnd.github+json"
         },
+        cache:"no-store",
         body: JSON.stringify(body)
       });
       if(!res.ok) throw new Error("Gist同期に失敗");
+      DB.meta.lastPushedAt = nowISO();
+      DB.meta.lastRemoteUpdated = DB.updated || "";
+      persistState();
     }
     updateStatus("ok");
   }catch(err){
     console.error(err);
     updateStatus("error");
+  }finally{
+    syncBusy = false;
   }
 }
 
-async function syncPull(){
+async function syncPull(options = {}){
+  const { persist = true, quiet = false, skipPush = false } = options;
   const gist = gc();
   if(!gist.id || !gist.token) return;
   try{
-    updateStatus("syncing");
-    const res = await fetch(`https://api.github.com/gists/${gist.id}`, {
+    if(!quiet) updateStatus("syncing");
+    const res = await fetch(`https://api.github.com/gists/${gist.id}?t=${Date.now()}`, {
       headers:{
         "Authorization":`Bearer ${gist.token}`,
         "Accept":"application/vnd.github+json"
-      }
+      },
+      cache:"no-store"
     });
     if(!res.ok) throw new Error("Gist読込に失敗");
     const json = await res.json();
@@ -742,11 +781,16 @@ async function syncPull(){
     }
     const remote = JSON.parse(file.content);
     mergeDB(remote);
-    saveDB(false);
-    updateStatus("ok");
+    DB.meta.lastPulledAt = nowISO();
+    DB.meta.lastRemoteUpdated = remote.updated || "";
+    if(persist){
+      persistState();
+    }
+    if(!quiet) updateStatus("ok");
+    return remote;
   }catch(err){
     console.error(err);
-    updateStatus("error");
+    if(!quiet) updateStatus("error");
   }
 }
 
@@ -789,7 +833,10 @@ function render(){
   document.getElementById("phaseInput").value = DB.currentSong.phase || "企画";
   document.getElementById("refInput").value = DB.currentSong.ref || "";
   document.getElementById("nextActionInput").value = DB.currentSong.nextAction || "";
-  document.getElementById("updatedLabel").textContent = DB.updated ? `saved ${new Date(DB.updated).toLocaleString("ja-JP")}` : "未保存";
+  const pull = DB.meta?.lastPulledAt ? `受信 ${new Date(DB.meta.lastPulledAt).toLocaleTimeString("ja-JP")}` : "受信なし";
+  const push = DB.meta?.lastPushedAt ? `送信 ${new Date(DB.meta.lastPushedAt).toLocaleTimeString("ja-JP")}` : "送信なし";
+  const saved = DB.updated ? `保存 ${new Date(DB.updated).toLocaleString("ja-JP")}` : "未保存";
+  document.getElementById("updatedLabel").textContent = `${saved} / ${pull} / ${push}`;
   document.getElementById("briefBox").textContent = buildBrief();
   renderProjects();
   renderQueue();
@@ -1007,6 +1054,7 @@ function bindEvents(){
     syncPush(true);
   });
   document.getElementById("refreshBtn").addEventListener("click", ()=>syncPull());
+  document.getElementById("pushBtn").addEventListener("click", ()=>syncPush(true));
   document.getElementById("copyBriefBtn").addEventListener("click", async ()=>{
     await navigator.clipboard.writeText(buildBrief());
     updateStatus("ok");
@@ -1089,8 +1137,9 @@ function bindEvents(){
     if(document.visibilityState === "visible") syncPull();
   });
   window.addEventListener("focus", syncPull);
-  window.addEventListener("beforeunload", ()=>saveDB(false));
-  setInterval(syncPull, 30000);
+  window.addEventListener("online", syncPull);
+  window.addEventListener("beforeunload", ()=>persistState());
+  setInterval(syncPull, 10000);
 }
 
 render();
