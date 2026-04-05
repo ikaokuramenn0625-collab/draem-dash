@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0D0906">
+<title>dræm. Music Hub</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --bg:#0D0906;
+  --panel:#17110d;
+  --panel-2:#1f1812;
+  --line:rgba(255,255,255,.08);
+  --gold:#C4A059;
+  --gold-2:#E0C17B;
+  --text:#E8DDD0;
+  --sub:#A89585;
+  --muted:#6D5A4A;
+  --green:#5CB870;
+  --red:#C45B5B;
+}
+html,body{
+  margin:0;
+  background:
+    radial-gradient(circle at top left, rgba(196,160,89,.12), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(196,160,89,.08), transparent 26%),
+    var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Helvetica Neue",sans-serif;
+}
+body{min-height:100dvh}
+.app{
+  width:min(100%,480px);
+  margin:0 auto;
+  padding:calc(18px + env(safe-area-inset-top)) 14px calc(100px + env(safe-area-inset-bottom));
+}
+.topbar{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+.brand{
+  font-family:Georgia,serif;
+  font-weight:700;
+  font-size:2rem;
+  letter-spacing:-.03em;
+  background:linear-gradient(135deg,#8B6F47,var(--gold),var(--gold-2));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.subline{
+  color:var(--sub);
+  font-size:.72rem;
+  margin-top:2px;
+}
+.actions{display:flex;align-items:center;gap:8px}
+.status{
+  padding:6px 10px;
+  border:1px solid rgba(196,160,89,.25);
+  border-radius:999px;
+  font-size:.68rem;
+  color:var(--gold-2);
+  background:rgba(196,160,89,.08);
+}
+.icon-btn,.fab{
+  border:1px solid rgba(196,160,89,.28);
+  background:rgba(255,255,255,.03);
+  color:var(--gold);
+  cursor:pointer;
+  font:inherit;
+}
+.icon-btn{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  font-size:1rem;
+}
+.card{
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:14px;
+  margin-bottom:12px;
+  box-shadow:0 14px 30px rgba(0,0,0,.22);
+}
+.hero{
+  background:linear-gradient(135deg,rgba(196,160,89,.15),rgba(255,255,255,.02));
+}
+.eyebrow{
+  color:var(--gold);
+  font-size:.64rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+.hero-title{
+  font-family:Georgia,serif;
+  font-size:1.45rem;
+  line-height:1.15;
+  margin:0 0 8px;
+}
+.hero-copy{
+  color:var(--sub);
+  font-size:.82rem;
+  line-height:1.6;
+}
+.grid{
+  display:grid;
+  gap:10px;
+}
+.grid.two{
+  grid-template-columns:1fr 1fr;
+}
+.label{
+  display:block;
+  font-size:.68rem;
+  color:var(--sub);
+  margin-bottom:6px;
+}
+.input,.textarea,.select{
+  width:100%;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.03);
+  color:var(--text);
+  border-radius:12px;
+  padding:11px 12px;
+  font:inherit;
+  font-size:.92rem;
+  outline:none;
+}
+.input:focus,.textarea:focus,.select:focus{
+  border-color:rgba(196,160,89,.48);
+  box-shadow:0 0 0 3px rgba(196,160,89,.08);
+}
+.textarea{min-height:84px;resize:vertical;line-height:1.55}
+.row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.btn{
+  border:none;
+  border-radius:12px;
+  padding:11px 12px;
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+}
+.btn.gold{
+  background:linear-gradient(135deg,#9b7c46,var(--gold),var(--gold-2));
+  color:#140f0b;
+}
+.btn.ghost{
+  background:rgba(255,255,255,.03);
+  color:var(--text);
+  border:1px solid rgba(255,255,255,.08);
+}
+.btn.small{
+  padding:8px 10px;
+  font-size:.78rem;
+}
+.section-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.section-title h2{
+  margin:0;
+  font-size:1rem;
+}
+.tiny{
+  color:var(--muted);
+  font-size:.72rem;
+}
+.pill-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.pill{
+  border:1px solid rgba(196,160,89,.2);
+  background:rgba(196,160,89,.08);
+  color:var(--gold-2);
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:.72rem;
+}
+.project{
+  padding:12px;
+  border-radius:14px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);
+  margin-bottom:10px;
+}
+.project-head{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:10px;
+}
+.project-name{
+  font-size:1rem;
+  font-weight:700;
+}
+.project-meta{
+  font-size:.72rem;
+  color:var(--sub);
+}
+.project.active{
+  border-color:rgba(196,160,89,.32);
+  box-shadow:0 0 0 1px rgba(196,160,89,.16) inset;
+}
+.list{display:grid;gap:8px}
+.task{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:10px;
+  align-items:flex-start;
+  padding:12px;
+  border-radius:14px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);
+}
+.task.done{opacity:.48}
+.check{
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  border:2px solid rgba(196,160,89,.55);
+  background:transparent;
+  cursor:pointer;
+  margin-top:2px;
+}
+.task.done .check{
+  background:var(--green);
+  border-color:var(--green);
+}
+.task-title{
+  font-size:.92rem;
+  line-height:1.45;
+}
+.task-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:6px;
+}
+.badge{
+  font-size:.68rem;
+  border-radius:999px;
+  padding:4px 8px;
+  background:rgba(255,255,255,.04);
+  color:var(--sub);
+}
+.badge.gold{
+  background:rgba(196,160,89,.1);
+  color:var(--gold-2);
+}
+.badge.red{
+  background:rgba(196,91,91,.12);
+  color:#f0b0b0;
+}
+.task-actions{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.task-actions button{
+  border:none;
+  background:transparent;
+  color:var(--muted);
+  font-size:.85rem;
+  cursor:pointer;
+}
+.empty{
+  padding:14px;
+  border-radius:14px;
+  border:1px dashed rgba(255,255,255,.08);
+  color:var(--muted);
+  text-align:center;
+  font-size:.84rem;
+}
+.brief{
+  white-space:pre-wrap;
+  font-size:.8rem;
+  line-height:1.65;
+  color:var(--text);
+  background:#120d0a;
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:14px;
+  padding:14px;
+}
+.footer-note{
+  text-align:center;
+  color:var(--muted);
+  font-size:.68rem;
+  margin-top:14px;
+}
+.fab{
+  position:fixed;
+  right:16px;
+  bottom:calc(16px + env(safe-area-inset-bottom));
+  width:52px;
+  height:52px;
+  border-radius:50%;
+  font-size:1.15rem;
+  box-shadow:0 10px 28px rgba(0,0,0,.4);
+}
+.modal-wrap{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:flex-end;
+  justify-content:center;
+  background:rgba(0,0,0,.55);
+  z-index:50;
+  padding:20px 12px calc(18px + env(safe-area-inset-bottom));
+}
+.modal-wrap.show{display:flex}
+.modal{
+  width:min(100%,480px);
+  background:#17110d;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:22px;
+  padding:16px;
+}
+.modal h3{
+  margin:0 0 10px;
+  font-size:1rem;
+}
+.modal-copy{
+  color:var(--sub);
+  font-size:.8rem;
+  line-height:1.6;
+  margin-bottom:12px;
+}
+.modal-actions{
+  display:flex;
+  gap:8px;
+  margin-top:12px;
+}
+.modal-actions .btn{flex:1}
+a.inline-link{color:var(--gold-2)}
+@media (min-width:520px){
+  .grid.two{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+  <main class="app">
+    <div class="topbar">
+      <div>
+        <div class="brand">dræm.</div>
+        <div class="subline">music hub / codex edition</div>
+      </div>
+      <div class="actions">
+        <div class="status" id="syncStatus">local only</div>
+        <button class="icon-btn" id="refreshBtn" title="同期">↻</button>
+      </div>
+    </div>
+
+    <section class="card hero">
+      <div class="eyebrow">Music First</div>
+      <h1 class="hero-title">外でもすぐ開ける、音楽活動の司令塔</h1>
+      <div class="hero-copy">今の曲、次の一手、Empireへ投げたい仕事だけを残します。スマホ縦前提で、触ったらすぐ保存されます。</div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Today</h2>
+        <span class="tiny" id="updatedLabel">未保存</span>
+      </div>
+      <label class="label" for="missionInput">今のミッション</label>
+      <textarea class="textarea autosave" id="missionInput" placeholder="例: 今月の1曲を完成まで前に進める"></textarea>
+      <div class="grid two" style="margin-top:10px">
+        <div>
+          <label class="label" for="focusInput">今日のフォーカス</label>
+          <input class="input autosave" id="focusInput" placeholder="今日いちばん進めたいこと">
+        </div>
+        <div>
+          <label class="label" for="oneThingInput">次の1アクション</label>
+          <input class="input autosave" id="oneThingInput" placeholder="最初の5分でやること">
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Current Song</h2>
+        <span class="tiny">今触っている曲</span>
+      </div>
+      <div class="grid two">
+        <div>
+          <label class="label" for="currentSongInput">曲名</label>
+          <input class="input autosave" id="currentSongInput" placeholder="例: 再起">
+        </div>
+        <div>
+          <label class="label" for="phaseInput">フェーズ</label>
+          <select class="select autosave" id="phaseInput">
+            <option>企画</option>
+            <option>作曲</option>
+            <option>アレンジ</option>
+            <option>仮歌</option>
+            <option>制作</option>
+            <option>MV</option>
+            <option>配信</option>
+            <option>分析</option>
+          </select>
+        </div>
+      </div>
+      <label class="label" for="refInput" style="margin-top:10px">参考曲 / メモ</label>
+      <input class="input autosave" id="refInput" placeholder="例: ○○の空気感、コード感">
+      <label class="label" for="nextActionInput" style="margin-top:10px">次にやること</label>
+      <textarea class="textarea autosave" id="nextActionInput" placeholder="例: Bメロのコード進行を3案作る"></textarea>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Projects</h2>
+        <button class="btn gold small" id="addProjectBtn">曲を追加</button>
+      </div>
+      <div id="projectList" class="list"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Empire Queue</h2>
+        <span class="tiny">秘書に渡す前の箱</span>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <select class="select" id="queueDept" style="max-width:112px">
+          <option>制作</option>
+          <option>映像</option>
+          <option>リサーチ</option>
+          <option>秘書</option>
+        </select>
+        <select class="select" id="queueRisk" style="max-width:112px">
+          <option value="">通常</option>
+          <option>注意</option>
+          <option>高め</option>
+        </select>
+        <input class="input" id="queueText" placeholder="投げたい仕事を書く">
+        <button class="btn gold" id="addQueueBtn">追加</button>
+      </div>
+      <div id="queueList" class="list"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Risks</h2>
+        <button class="btn ghost small" id="addRiskBtn">リスク追加</button>
+      </div>
+      <div class="row">
+        <input class="input" id="riskText" placeholder="明日詰まりそうなこと">
+      </div>
+      <div id="riskList" class="pill-row" style="margin-top:10px"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Inbox</h2>
+        <span class="tiny">思いつきをそのまま置く</span>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <input class="input" id="inboxText" placeholder="メロ、歌詞、気づき、頼みたいこと">
+        <button class="btn gold" id="addInboxBtn">追加</button>
+      </div>
+      <div id="inboxList" class="list"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Empire Brief</h2>
+        <div class="row">
+          <button class="btn ghost small" id="copyBriefBtn">コピー</button>
+          <button class="btn ghost small" id="downloadBriefBtn">保存</button>
+        </div>
+      </div>
+      <div class="brief" id="briefBox"></div>
+    </section>
+
+    <div class="footer-note">公開URLで開ける別アプリです。設定すると Gist に同期します。</div>
+  </main>
+
+  <button class="fab" id="settingsBtn" title="設定">⚙</button>
+
+  <div class="modal-wrap" id="settingsModal">
+    <div class="modal">
+      <h3>同期設定</h3>
+      <div class="modal-copy">GitHub Token と Gist ID を入れると、スマホでも同じ内容を開けます。Gist ID が空なら、新しく作ります。</div>
+      <label class="label" for="gistIdInput">Gist ID</label>
+      <input class="input" id="gistIdInput" placeholder="例: 9999c730133201d236a56d8c163fbe88">
+      <label class="label" for="gistTokenInput" style="margin-top:10px">GitHub Token</label>
+      <input class="input" id="gistTokenInput" type="password" placeholder="Fine-grained token / classic token">
+      <div class="modal-copy" style="margin-top:10px">このページは既存のダッシュボードとは別の `codex_music_hub.json` を保存します。</div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="exportBtn">エクスポート</button>
+        <button class="btn ghost" id="importBtn">インポート</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="closeSettingsBtn">閉じる</button>
+        <button class="btn gold" id="saveSettingsBtn">保存</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </div>
+  </div>
+
+<script>
+const STORAGE_KEY = "codex_music_hub_db";
+const COOKIE_KEY = "codex_music_hub_backup";
+const GIST_FILENAME = "codex_music_hub.json";
+const PHASES = ["企画","作曲","アレンジ","仮歌","制作","MV","配信","分析"];
+const DEFAULT_DB = {
+  ver: 1,
+  updated: "",
+  mission: "まずは音楽活動を前に進める",
+  focus: "",
+  oneThing: "",
+  currentSong: {
+    title: "",
+    phase: "企画",
+    ref: "",
+    nextAction: ""
+  },
+  projects: [],
+  empireQueue: [],
+  risks: [],
+  inbox: [],
+  apiSettings: {
+    gist: {
+      id: "",
+      token: ""
+    }
+  }
+};
+
+let DB = loadDB();
+let pushTimer = null;
+
+function uid(){
+  return `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+}
+
+function nowISO(){
+  return new Date().toISOString();
+}
+
+function deepClone(obj){
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function mergeDB(remote){
+  if(!remote || typeof remote !== "object") return DB;
+  const merged = deepClone(DB);
+  const incoming = {...deepClone(DEFAULT_DB), ...remote};
+
+  ["mission","focus","oneThing"].forEach(key=>{
+    if((incoming.updated || "") >= (merged.updated || "") && incoming[key] !== undefined){
+      merged[key] = incoming[key];
+    }
+  });
+
+  if((incoming.updated || "") >= (merged.updated || "")){
+    merged.currentSong = {...merged.currentSong, ...(incoming.currentSong || {})};
+  }
+
+  merged.projects = mergeById(merged.projects, incoming.projects, ["title","phase","ref","nextAction"]);
+  merged.empireQueue = mergeById(merged.empireQueue, incoming.empireQueue, ["text","dept","risk","done"]);
+  merged.inbox = mergeById(merged.inbox, incoming.inbox, ["text"]);
+  merged.risks = Array.from(new Set([...(merged.risks || []), ...(incoming.risks || [])])).filter(Boolean);
+
+  if((incoming.updated || "") >= (merged.updated || "")){
+    merged.apiSettings = {
+      gist: {
+        id: incoming?.apiSettings?.gist?.id || merged?.apiSettings?.gist?.id || "",
+        token: incoming?.apiSettings?.gist?.token || merged?.apiSettings?.gist?.token || ""
+      }
+    };
+    merged.updated = incoming.updated || merged.updated;
+    merged.ver = Math.max(Number(merged.ver || 1), Number(incoming.ver || 1));
+  }
+  DB = merged;
+  return merged;
+}
+
+function mergeById(localItems = [], remoteItems = [], keys = []){
+  const map = new Map();
+  [...localItems, ...remoteItems].forEach(item=>{
+    if(!item || !item.id) return;
+    const prev = map.get(item.id) || {};
+    const next = {...prev, ...item};
+    keys.forEach(key=>{
+      if(item[key] !== undefined) next[key] = item[key];
+    });
+    if(prev.done || item.done) next.done = true;
+    map.set(item.id, next);
+  });
+  return [...map.values()].sort((a,b)=>(b.createdAt || "").localeCompare(a.createdAt || ""));
+}
+
+function loadDB(){
+  const fromStorage = safeParse(localStorage.getItem(STORAGE_KEY));
+  const fromCookie = safeParse(readCookie(COOKIE_KEY));
+  const base = deepClone(DEFAULT_DB);
+  const loaded = fromStorage || fromCookie || {};
+  const db = {...base, ...loaded};
+  db.currentSong = {...base.currentSong, ...(loaded.currentSong || {})};
+  db.projects = Array.isArray(loaded.projects) ? loaded.projects : [];
+  db.empireQueue = Array.isArray(loaded.empireQueue) ? loaded.empireQueue : [];
+  db.risks = Array.isArray(loaded.risks) ? loaded.risks : [];
+  db.inbox = Array.isArray(loaded.inbox) ? loaded.inbox : [];
+  db.apiSettings = {
+    gist: {
+      id: loaded?.apiSettings?.gist?.id || "",
+      token: loaded?.apiSettings?.gist?.token || ""
+    }
+  };
+  return db;
+}
+
+function saveDB(push = true){
+  DB.ver = Number(DB.ver || 1) + 1;
+  DB.updated = nowISO();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+  writeCookie(COOKIE_KEY, JSON.stringify(DB), 400);
+  updateStatus();
+  render();
+  if(push) syncPush();
+}
+
+function overwriteData(data){
+  DB = {...deepClone(DEFAULT_DB), ...data};
+  DB.currentSong = {...deepClone(DEFAULT_DB.currentSong), ...(data.currentSong || {})};
+  saveDB(false);
+  render();
+}
+
+function safeParse(raw){
+  if(!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+function writeCookie(name, value, days){
+  const expires = new Date(Date.now() + days * 86400000).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+function readCookie(name){
+  const match = document.cookie.split("; ").find(v=>v.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split("=")[1]) : "";
+}
+
+function gc(){
+  return DB?.apiSettings?.gist || {id:"", token:""};
+}
+
+function restoreApiFromDB(){
+  document.getElementById("gistIdInput").value = gc().id || "";
+  document.getElementById("gistTokenInput").value = gc().token || "";
+}
+
+async function syncPush(immediate = false){
+  clearTimeout(pushTimer);
+  if(!immediate){
+    pushTimer = setTimeout(()=>syncPush(true), 1200);
+    updateStatus("waiting");
+    return;
+  }
+  const gist = gc();
+  if(!gist.token) {
+    updateStatus("local");
+    return;
+  }
+  try{
+    updateStatus("syncing");
+    let gistId = gist.id;
+    const body = {
+      description: "dræm. music hub sync",
+      public: false,
+      files: {
+        [GIST_FILENAME]: { content: JSON.stringify(DB, null, 2) }
+      }
+    };
+    if(!gistId){
+      const res = await fetch("https://api.github.com/gists", {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "Authorization":`Bearer ${gist.token}`,
+          "Accept":"application/vnd.github+json"
+        },
+        body: JSON.stringify(body)
+      });
+      if(!res.ok) throw new Error("Gist作成に失敗");
+      const json = await res.json();
+      gistId = json.id;
+      DB.apiSettings.gist.id = gistId;
+      saveDB(false);
+      restoreApiFromDB();
+    }else{
+      const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method:"PATCH",
+        headers:{
+          "Content-Type":"application/json",
+          "Authorization":`Bearer ${gist.token}`,
+          "Accept":"application/vnd.github+json"
+        },
+        body: JSON.stringify(body)
+      });
+      if(!res.ok) throw new Error("Gist同期に失敗");
+    }
+    updateStatus("ok");
+  }catch(err){
+    console.error(err);
+    updateStatus("error");
+  }
+}
+
+async function syncPull(){
+  const gist = gc();
+  if(!gist.id || !gist.token) return;
+  try{
+    updateStatus("syncing");
+    const res = await fetch(`https://api.github.com/gists/${gist.id}`, {
+      headers:{
+        "Authorization":`Bearer ${gist.token}`,
+        "Accept":"application/vnd.github+json"
+      }
+    });
+    if(!res.ok) throw new Error("Gist読込に失敗");
+    const json = await res.json();
+    const file = json.files?.[GIST_FILENAME];
+    if(!file?.content) {
+      updateStatus("ok");
+      return;
+    }
+    const remote = JSON.parse(file.content);
+    mergeDB(remote);
+    saveDB(false);
+    updateStatus("ok");
+  }catch(err){
+    console.error(err);
+    updateStatus("error");
+  }
+}
+
+function buildBrief(){
+  const queue = DB.empireQueue || [];
+  const risks = DB.risks || [];
+  const projects = DB.projects || [];
+  return [
+    "# Empire Brief — Music Hub",
+    "",
+    `- mission: ${DB.mission || "未設定"}`,
+    `- focus: ${DB.focus || "未設定"}`,
+    `- one_thing: ${DB.oneThing || "未設定"}`,
+    `- current_song: ${DB.currentSong.title || "未設定"}`,
+    `- current_phase: ${DB.currentSong.phase || "未設定"}`,
+    "",
+    "## 現在の曲",
+    `- ref: ${DB.currentSong.ref || "未設定"}`,
+    `- next_action: ${DB.currentSong.nextAction || "未設定"}`,
+    "",
+    "## 進行中プロジェクト",
+    ...(projects.length ? projects.map(p=>`- ${p.title || "無題"} [${p.phase || "企画"}]${p.nextAction ? " -> " + p.nextAction : ""}`) : ["- なし"]),
+    "",
+    "## Empire Queue",
+    ...(queue.length ? queue.map(item=>`- [${item.dept || "制作"}] ${item.text}${item.risk ? " / risk: " + item.risk : ""}${item.done ? " / done" : ""}`) : ["- なし"]),
+    "",
+    "## Risks",
+    ...(risks.length ? risks.map(item=>`- ${item}`) : ["- なし"]),
+    "",
+    "## Inbox",
+    ...((DB.inbox || []).slice(0,8).map(item=>`- ${item.text}`) || ["- なし"])
+  ].join("\n");
+}
+
+function render(){
+  document.getElementById("missionInput").value = DB.mission || "";
+  document.getElementById("focusInput").value = DB.focus || "";
+  document.getElementById("oneThingInput").value = DB.oneThing || "";
+  document.getElementById("currentSongInput").value = DB.currentSong.title || "";
+  document.getElementById("phaseInput").value = DB.currentSong.phase || "企画";
+  document.getElementById("refInput").value = DB.currentSong.ref || "";
+  document.getElementById("nextActionInput").value = DB.currentSong.nextAction || "";
+  document.getElementById("updatedLabel").textContent = DB.updated ? `saved ${new Date(DB.updated).toLocaleString("ja-JP")}` : "未保存";
+  document.getElementById("briefBox").textContent = buildBrief();
+  renderProjects();
+  renderQueue();
+  renderRisks();
+  renderInbox();
+  restoreApiFromDB();
+}
+
+function renderProjects(){
+  const root = document.getElementById("projectList");
+  const items = DB.projects || [];
+  if(!items.length){
+    root.innerHTML = '<div class="empty">まだ曲がありません。今の曲や作りたい曲を追加できます。</div>';
+    return;
+  }
+  root.innerHTML = items.map(item=>`
+    <div class="project ${DB.currentSong.title === item.title ? "active" : ""}">
+      <div class="project-head">
+        <div>
+          <div class="project-name">${escapeHtml(item.title || "無題")}</div>
+          <div class="project-meta">${escapeHtml(item.phase || "企画")}${item.ref ? " / " + escapeHtml(item.ref) : ""}</div>
+        </div>
+        <div class="task-actions">
+          <button data-project-focus="${item.id}">現在曲</button>
+          <button data-project-del="${item.id}">削除</button>
+        </div>
+      </div>
+      <div class="grid two">
+        <input class="input project-input" data-project-id="${item.id}" data-key="title" value="${escapeAttr(item.title || "")}" placeholder="曲名">
+        <select class="select project-input" data-project-id="${item.id}" data-key="phase">
+          ${PHASES.map(phase=>`<option ${phase === item.phase ? "selected" : ""}>${phase}</option>`).join("")}
+        </select>
+      </div>
+      <input class="input project-input" data-project-id="${item.id}" data-key="ref" value="${escapeAttr(item.ref || "")}" placeholder="参考曲 / ムード" style="margin-top:8px">
+      <textarea class="textarea project-input" data-project-id="${item.id}" data-key="nextAction" placeholder="次にやること" style="margin-top:8px;min-height:68px">${escapeHtml(item.nextAction || "")}</textarea>
+    </div>
+  `).join("");
+}
+
+function renderQueue(){
+  const root = document.getElementById("queueList");
+  const items = DB.empireQueue || [];
+  if(!items.length){
+    root.innerHTML = '<div class="empty">まだ空です。投げたい仕事を書いておけば、あとでEmpireに渡せます。</div>';
+    return;
+  }
+  root.innerHTML = items.map(item=>`
+    <div class="task ${item.done ? "done" : ""}">
+      <button class="check" data-queue-toggle="${item.id}"></button>
+      <div>
+        <div class="task-title">${escapeHtml(item.text)}</div>
+        <div class="task-meta">
+          <span class="badge gold">${escapeHtml(item.dept || "制作")}</span>
+          ${item.risk ? `<span class="badge red">${escapeHtml(item.risk)}</span>` : ""}
+        </div>
+      </div>
+      <div class="task-actions">
+        <button data-queue-del="${item.id}">削除</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderRisks(){
+  const root = document.getElementById("riskList");
+  const items = DB.risks || [];
+  if(!items.length){
+    root.innerHTML = '<div class="empty">今見えているリスクを短く置いておく欄です。</div>';
+    return;
+  }
+  root.innerHTML = items.map((item, index)=>`
+    <span class="pill">${escapeHtml(item)} <button style="margin-left:6px;border:none;background:none;color:var(--muted);cursor:pointer" data-risk-del="${index}">×</button></span>
+  `).join("");
+}
+
+function renderInbox(){
+  const root = document.getElementById("inboxList");
+  const items = DB.inbox || [];
+  if(!items.length){
+    root.innerHTML = '<div class="empty">メロ、歌詞、頼みたいことを1行で残しておけます。</div>';
+    return;
+  }
+  root.innerHTML = items.map(item=>`
+    <div class="task">
+      <div></div>
+      <div>
+        <div class="task-title">${escapeHtml(item.text)}</div>
+        <div class="task-meta"><span class="badge">${new Date(item.createdAt).toLocaleString("ja-JP")}</span></div>
+      </div>
+      <div class="task-actions">
+        <button data-inbox-del="${item.id}">削除</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function updateStatus(kind = ""){
+  const el = document.getElementById("syncStatus");
+  if(kind === "syncing"){ el.textContent = "syncing"; return; }
+  if(kind === "waiting"){ el.textContent = "saving"; return; }
+  if(kind === "ok"){ el.textContent = "synced"; return; }
+  if(kind === "error"){ el.textContent = "sync error"; return; }
+  const gist = gc();
+  el.textContent = gist.id && gist.token ? "ready" : "local only";
+}
+
+function escapeHtml(value){
+  return String(value).replace(/[&<>"']/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[ch]));
+}
+
+function escapeAttr(value){
+  return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+function addProject(){
+  const title = prompt("曲名");
+  if(!title || !title.trim()) return;
+  DB.projects.unshift({
+    id: uid(),
+    title: title.trim(),
+    phase: DB.currentSong.phase || "企画",
+    ref: "",
+    nextAction: "",
+    createdAt: nowISO()
+  });
+  if(!DB.currentSong.title){
+    DB.currentSong.title = title.trim();
+  }
+  saveDB();
+}
+
+function addQueue(){
+  const text = document.getElementById("queueText").value.trim();
+  if(!text) return;
+  DB.empireQueue.unshift({
+    id: uid(),
+    text,
+    dept: document.getElementById("queueDept").value,
+    risk: document.getElementById("queueRisk").value,
+    done: false,
+    createdAt: nowISO()
+  });
+  document.getElementById("queueText").value = "";
+  document.getElementById("queueRisk").value = "";
+  saveDB();
+}
+
+function addRisk(){
+  const input = document.getElementById("riskText");
+  const text = input.value.trim();
+  if(!text) return;
+  DB.risks.unshift(text);
+  input.value = "";
+  saveDB();
+}
+
+function addInbox(){
+  const input = document.getElementById("inboxText");
+  const text = input.value.trim();
+  if(!text) return;
+  DB.inbox.unshift({ id: uid(), text, createdAt: nowISO() });
+  input.value = "";
+  saveDB();
+}
+
+function exportDB(){
+  const blob = new Blob([JSON.stringify(DB, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `codex_music_hub_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadBrief(){
+  const blob = new Blob([buildBrief()], {type:"text/markdown"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "empire_music_brief.md";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function bindEvents(){
+  document.querySelectorAll(".autosave").forEach(el=>{
+    el.addEventListener("input", () => {
+      DB.mission = document.getElementById("missionInput").value;
+      DB.focus = document.getElementById("focusInput").value;
+      DB.oneThing = document.getElementById("oneThingInput").value;
+      DB.currentSong.title = document.getElementById("currentSongInput").value;
+      DB.currentSong.phase = document.getElementById("phaseInput").value;
+      DB.currentSong.ref = document.getElementById("refInput").value;
+      DB.currentSong.nextAction = document.getElementById("nextActionInput").value;
+      saveDB();
+    });
+  });
+
+  document.getElementById("addProjectBtn").addEventListener("click", addProject);
+  document.getElementById("addQueueBtn").addEventListener("click", addQueue);
+  document.getElementById("addRiskBtn").addEventListener("click", addRisk);
+  document.getElementById("riskText").addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); addRisk(); } });
+  document.getElementById("addInboxBtn").addEventListener("click", addInbox);
+  document.getElementById("inboxText").addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); addInbox(); } });
+  document.getElementById("queueText").addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); addQueue(); } });
+
+  document.getElementById("settingsBtn").addEventListener("click", ()=>document.getElementById("settingsModal").classList.add("show"));
+  document.getElementById("closeSettingsBtn").addEventListener("click", ()=>document.getElementById("settingsModal").classList.remove("show"));
+  document.getElementById("saveSettingsBtn").addEventListener("click", ()=>{
+    DB.apiSettings.gist.id = document.getElementById("gistIdInput").value.trim();
+    DB.apiSettings.gist.token = document.getElementById("gistTokenInput").value.trim();
+    saveDB(false);
+    document.getElementById("settingsModal").classList.remove("show");
+    syncPush(true);
+  });
+  document.getElementById("refreshBtn").addEventListener("click", ()=>syncPull());
+  document.getElementById("copyBriefBtn").addEventListener("click", async ()=>{
+    await navigator.clipboard.writeText(buildBrief());
+    updateStatus("ok");
+  });
+  document.getElementById("downloadBriefBtn").addEventListener("click", downloadBrief);
+  document.getElementById("exportBtn").addEventListener("click", exportDB);
+  document.getElementById("importBtn").addEventListener("click", ()=>document.getElementById("importFile").click());
+  document.getElementById("importFile").addEventListener("change", async e=>{
+    const file = e.target.files?.[0];
+    if(!file) return;
+    const text = await file.text();
+    const json = JSON.parse(text);
+    overwriteData(json);
+    saveDB(false);
+    render();
+  });
+
+  document.body.addEventListener("input", e=>{
+    const target = e.target;
+    if(!target.matches(".project-input")) return;
+    const item = DB.projects.find(project=>project.id === target.dataset.projectId);
+    if(!item) return;
+    item[target.dataset.key] = target.value;
+    if(DB.currentSong.title === item.title || (!DB.currentSong.title && target.dataset.key === "title")){
+      if(target.dataset.key === "title") DB.currentSong.title = target.value;
+      if(target.dataset.key === "phase") DB.currentSong.phase = target.value;
+      if(target.dataset.key === "ref") DB.currentSong.ref = target.value;
+      if(target.dataset.key === "nextAction") DB.currentSong.nextAction = target.value;
+    }
+    saveDB();
+  });
+
+  document.body.addEventListener("click", e=>{
+    const toggleId = e.target.dataset.queueToggle;
+    const delId = e.target.dataset.queueDel;
+    const inboxDel = e.target.dataset.inboxDel;
+    const riskDel = e.target.dataset.riskDel;
+    const projectFocus = e.target.dataset.projectFocus;
+    const projectDel = e.target.dataset.projectDel;
+
+    if(toggleId){
+      const item = DB.empireQueue.find(task=>task.id === toggleId);
+      if(item){ item.done = !item.done; saveDB(); }
+    }
+    if(delId){
+      DB.empireQueue = DB.empireQueue.filter(task=>task.id !== delId);
+      saveDB();
+    }
+    if(inboxDel){
+      DB.inbox = DB.inbox.filter(item=>item.id !== inboxDel);
+      saveDB();
+    }
+    if(riskDel !== undefined){
+      DB.risks.splice(Number(riskDel), 1);
+      saveDB();
+    }
+    if(projectFocus){
+      const project = DB.projects.find(item=>item.id === projectFocus);
+      if(project){
+        DB.currentSong.title = project.title || "";
+        DB.currentSong.phase = project.phase || "企画";
+        DB.currentSong.ref = project.ref || "";
+        DB.currentSong.nextAction = project.nextAction || "";
+        saveDB();
+      }
+    }
+    if(projectDel){
+      DB.projects = DB.projects.filter(item=>item.id !== projectDel);
+      saveDB();
+    }
+  });
+
+  document.getElementById("settingsModal").addEventListener("click", e=>{
+    if(e.target.id === "settingsModal"){
+      e.currentTarget.classList.remove("show");
+    }
+  });
+
+  document.addEventListener("visibilitychange", ()=>{
+    if(document.visibilityState === "visible") syncPull();
+  });
+  window.addEventListener("focus", syncPull);
+  window.addEventListener("beforeunload", ()=>saveDB(false));
+  setInterval(syncPull, 30000);
+}
+
+render();
+bindEvents();
+updateStatus();
+syncPull();
+</script>
+</body>
+</html>

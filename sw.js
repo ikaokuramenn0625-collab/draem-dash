@@ -1,6 +1,6 @@
-const V='v101';
+const V='v102';
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(V).then(c=>c.addAll(['./index.html','./','./manifest.json'])));
+  e.waitUntil(caches.open(V).then(c=>c.addAll(['./index.html','./','./manifest.json','./music-hub.html'])));
   self.skipWaiting();
 });
 self.addEventListener('activate',e=>{
