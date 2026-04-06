@@ -348,7 +348,7 @@ body{min-height:100dvh}
   <div class="phase-ring" id="phaseRing"></div>
 
   <div class="sec">Growth <span style="font-size:.45rem;color:var(--t3);font-weight:400;letter-spacing:0;text-transform:none">(tap to edit)</span></div>
-  <div class="kpi-row" id="kpiGrid"></div>
+  <div id="kpiGrid"></div>
 
   <div class="sec" style="display:flex;justify-content:space-between;align-items:center">💹 資産 <div style="display:flex;gap:.3rem"><a href="https://site3.sbisec.co.jp/ETGate/?_ControlID=WPLETacR002Control&_PageID=DefaultPID&_DataStoreID=DSWPLETacR002Control&getFlg=on&_ActionID=DefaultAID" target="_blank" class="asset-import-btn" style="text-decoration:none">🏦 SBI</a><label class="asset-import-btn">📥 取込<input type="file" id="assetCsvInput" accept=".csv" style="display:none"></label></div></div>
   <div id="assetSection"></div>
@@ -1657,34 +1657,44 @@ function render(){
   renderMonthlyReview();
 
   // KPI
-  const KD=[
-    {k:'subscribers',l:'YouTube',sub:'登録者',icon:'▶',t:G.subTarget,f:v=>v.toLocaleString(),p:pred.sub},
-    {k:'short_plays',l:'Shorts',sub:'再生数',icon:'▶',t:G.shortPlayTarget||100000,f:v=>v.toLocaleString(),p:null},
-    {k:'main_plays',l:'動画',sub:'再生数',icon:'▶',t:G.mainPlayTarget||50000,f:v=>v.toLocaleString(),p:pred.plays},
-    {k:'xFollowers',l:'X',sub:'フォロワー',icon:'✕',t:0,f:v=>v.toLocaleString(),p:null},
-    {k:'nnFollowers',l:'ニコニコ',sub:'フォロワー',icon:'N',t:0,f:v=>v.toLocaleString(),p:null},
-    {k:'songs',l:'楽曲',sub:'リリース数',icon:'♪',t:G.yearSongs,f:v=>v+'',p:null},
-    {k:'revenue',l:'収益',sub:'累計',icon:'¥',t:G.revenueTarget,f:v=>'¥'+v.toLocaleString(),p:pred.rev},
-  ];
   const weeksLeft=Math.max(1,Math.floor(dreamDaysLeft/7));
-  $('#kpiGrid').innerHTML=KD.map(d=>{
+  function kpiTile(d){
     const v=DB.kpi[d.k]||0;const p=Math.min(100,d.t>0?v/d.t*100:0);
     let predHtml='';
     if(d.p){
-      if(d.p.days===0){
-        predHtml=`<div style="font-size:.45rem;color:var(--gl);margin-top:.1rem">✓ 達成済</div>`;
-      } else {
-        const needed=Math.max(0,d.t-v);
-        const weeklyNeeded=needed/weeksLeft;
-        const needStr=d.k==='revenue'?'¥'+Math.ceil(weeklyNeeded).toLocaleString()+'/週':Math.ceil(weeklyNeeded).toLocaleString()+'/週';
-        const color=d.p.onTrack?'var(--gl)':'var(--red)';
-        predHtml=`<div style="font-size:.45rem;color:${color};margin-top:.1rem">${d.p.onTrack?'✓ On Track —':'⚡ 要'} ${needStr}</div>`;
-      }
+      if(d.p.days===0){predHtml=`<div style="font-size:.42rem;color:var(--gl);margin-top:.1rem">✓ 達成済</div>`;}
+      else{const needed=Math.max(0,d.t-v);const wn=needed/weeksLeft;const ns=d.k==='revenue'?'¥'+Math.ceil(wn).toLocaleString()+'/週':Math.ceil(wn).toLocaleString()+'/週';const col=d.p.onTrack?'var(--gl)':'var(--red)';predHtml=`<div style="font-size:.42rem;color:${col};margin-top:.1rem">${d.p.onTrack?'✓ 要':'⚡ 要'} ${ns}</div>`;}
     }
     const barHtml=d.t>0?`<div class="kpi-bar"><div class="kpi-fill" style="width:${p}%"></div></div>`:'';
     const tHtml=d.t>0?`<div class="kpi-t">/ ${d.f(d.t)}</div>`:'';
-    return`<div class="kpi"><div class="kpi-l"><span style="opacity:.5;margin-right:.2em">${d.icon}</span>${d.l}</div><div class="kpi-v">${d.f(v)}</div><div style="font-size:.4rem;color:var(--t3);margin-bottom:.1rem">${d.sub}</div>${tHtml}${barHtml}${predHtml}</div>`;
-  }).join('');
+    return`<div class="kpi"><div class="kpi-l">${d.l}</div><div class="kpi-v">${d.f(v)}</div><div style="font-size:.38rem;color:var(--t3);margin:.05rem 0 .1rem">${d.sub}</div>${tHtml}${barHtml}${predHtml}</div>`;
+  }
+  // YouTube（4タイル・2列）
+  const YT=[
+    {k:'subscribers',l:'登録者',sub:'YouTube',t:G.subTarget,f:v=>v.toLocaleString(),p:pred.sub},
+    {k:'short_plays',l:'Shorts 再生',sub:'YouTube',t:G.shortPlayTarget||100000,f:v=>v.toLocaleString(),p:null},
+    {k:'main_plays',l:'動画 再生',sub:'YouTube',t:G.mainPlayTarget||50000,f:v=>v.toLocaleString(),p:pred.plays},
+    {k:'songs',l:'楽曲数',sub:'YouTube',t:G.yearSongs,f:v=>v+'曲',p:null},
+  ];
+  // X（2タイル）
+  const XSN=[
+    {k:'xFollowers',l:'フォロワー',sub:'X (Twitter)',t:0,f:v=>v.toLocaleString(),p:null},
+    {k:'xTweets',l:'投稿数',sub:'X (Twitter)',t:0,f:v=>v.toLocaleString(),p:null},
+  ];
+  // ニコニコ（3タイル）
+  const NN=[
+    {k:'nnFollowers',l:'フォロワー',sub:'ニコニコ',t:0,f:v=>v.toLocaleString(),p:null},
+    {k:'nnPlays',l:'再生数',sub:'ニコニコ',t:0,f:v=>v.toLocaleString(),p:null},
+    {k:'nnVideos',l:'動画数',sub:'ニコニコ',t:0,f:v=>v+'本',p:null},
+  ];
+  $('#kpiGrid').innerHTML=`
+    <div style="font-size:.42rem;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin:.3rem 0 .2rem">▶ YouTube</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-bottom:.5rem">${YT.map(kpiTile).join('')}</div>
+    <div style="font-size:.42rem;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin:.1rem 0 .2rem">▶ X (Twitter)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-bottom:.5rem">${XSN.map(kpiTile).join('')}</div>
+    <div style="font-size:.42rem;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin:.1rem 0 .2rem">▶ ニコニコ</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.3rem">${NN.map(kpiTile).join('')}</div>
+  `;
   $('#kpiGrid').querySelectorAll('.kpi').forEach(el=>el.addEventListener('click',()=>openModal('kpi')));
 
   // Phase (dynamic songs)
@@ -2396,9 +2406,11 @@ async function fetchNN(){
     const d=await r.json();
     const u=d?.data?.user;
     if(!u)return;
-    if(!DB.kpi.nnFollowers||DB.kpi.nnFollowers!==u.followerCount){
-      DB.kpi.nnFollowers=u.followerCount||0;
-      // kpiLogに追記
+    let changed=false;
+    if(DB.kpi.nnFollowers!==u.followerCount){DB.kpi.nnFollowers=u.followerCount||0;changed=true;}
+    // v2 videos API からの再生数・動画数は niconico_sync.py が Gist に書き込む
+    // niconico.json にはユーザー情報のみ入っているため、ここでは followerCount のみ更新
+    if(changed){
       const today_entry=DB.kpiLog.find(e=>e.date===todayStr);
       if(today_entry)today_entry.nnFollowers=DB.kpi.nnFollowers;
       save();render();
