@@ -156,11 +156,11 @@ body{min-height:100dvh}
 .ph-conn.done{background:var(--gold);opacity:.6}
 
 /* KPI */
-.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin:.4rem 0}
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem;margin:.4rem 0}
 .kpi{background:var(--s1);border:1px solid rgba(255,255,255,.05);border-radius:8px;padding:.45rem .55rem;cursor:pointer}
 .kpi:active{background:var(--s2)}
 .kpi-l{font-size:.45rem;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:500}
-.kpi-v{font-family:Georgia,serif;font-size:1.2rem;font-weight:600;color:var(--t1);margin:.05rem 0}
+.kpi-v{font-family:Georgia,serif;font-size:1rem;font-weight:600;color:var(--t1);margin:.05rem 0}
 .kpi-t{font-size:.45rem;color:var(--t3)}
 .kpi-bar{height:3px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:.25rem;overflow:hidden}
 .kpi-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gd),var(--gold));transition:width .6s ease}
@@ -1661,6 +1661,7 @@ function render(){
     {k:'subscribers',l:'Subscribers',t:G.subTarget,f:v=>v.toLocaleString(),p:pred.sub},
     {k:'short_plays',l:'Shorts 再生',t:G.shortPlayTarget||100000,f:v=>v.toLocaleString(),p:null},
     {k:'main_plays',l:'メイン 再生',t:G.mainPlayTarget||50000,f:v=>v.toLocaleString(),p:pred.plays},
+    {k:'xFollowers',l:'X',t:0,f:v=>v.toLocaleString(),p:null},
     {k:'nnFollowers',l:'ニコニコ',t:0,f:v=>v.toLocaleString(),p:null},
     {k:'songs',l:'Songs',t:G.yearSongs,f:v=>v+'',p:null},
     {k:'revenue',l:'Revenue',t:G.revenueTarget,f:v=>'¥'+v.toLocaleString(),p:pred.rev},
@@ -2249,13 +2250,14 @@ function openModal(type,extra){
     $('#mTitle').textContent='設定';
     $('#mFields').innerHTML=`
       <div style="font-size:.55rem;color:var(--gold);margin-bottom:.3rem;font-weight:600">SYNC (Gist)</div>
-      <div class="mf"><label>Gist ID ${c.id?'<span style="color:var(--grn)">✓</span>':''}</label><input id="sG" value="${c.id||''}"></div>
-      <div class="mf"><label>GitHub Token ${c.token?'<span style="color:var(--grn)">✓</span>':''}</label><input id="sT" type="password" value="${c.token||''}"></div>
+      <div class="mf"><label>Gist ID</label><div style="font-size:.65rem;color:var(--t2);padding:.3rem 0;word-break:break-all">${c.id||'—'} ${c.id?'<span style="color:var(--grn)">✓</span>':''}</div></div>
+      <div class="mf"><label>GitHub Token</label><div style="font-size:.65rem;color:var(--grn);padding:.3rem 0">✓ macOS Keychain</div></div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">YOUTUBE AUTO KPI</div>
-      <div class="mf"><label>API Key ${y.apiKey?'<span style="color:var(--grn)">✓</span>':''}</label><input id="yK" type="password" value="${y.apiKey||''}"></div>
-      <div class="mf"><label>Channel ID ${y.channelId?'<span style="color:var(--grn)">✓</span>':''}</label><input id="yC" value="${y.channelId||''}"></div>
+      <div class="mf"><label>API Key</label><div style="font-size:.65rem;color:var(--t2);padding:.3rem 0">${y.apiKey?y.apiKey.slice(0,8)+'…&nbsp;<span style="color:var(--grn)">✓</span>':'—'}</div></div>
+      <div class="mf"><label>Channel ID</label><div style="font-size:.65rem;color:var(--t2);padding:.3rem 0">${y.channelId||'—'} ${y.channelId?'<span style="color:var(--grn)">✓</span>':''}</div></div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">NICONICO AUTO KPI</div>
-      <div class="mf"><label>User ID ${nnConf().userId?'<span style="color:var(--grn)">✓</span>':''}</label><input id="nnU" value="${nnConf().userId||''}" placeholder="数字のみ (例: 12345678)"></div>
+      <div class="mf"><label>User ID</label><div style="font-size:.65rem;color:var(--t2);padding:.3rem 0">${nnConf().userId||'—'} ${nnConf().userId?'<span style="color:var(--grn)">✓</span>':''}</div></div>
+      <div style="font-size:.45rem;color:var(--t3);margin:.2rem 0 .5rem">設定は Mac の ~/.notion_config.json と Keychain で管理されています</div>
       <div style="font-size:.55rem;color:var(--gold);margin:.5rem 0 .3rem;font-weight:600">TOOLS</div>
       <div style="display:flex;gap:.4rem;margin-bottom:.4rem">
         <button id="btnGoals" style="flex:1;padding:.35rem;background:var(--gdim);color:var(--gold);border:1px solid rgba(196,160,89,.2);border-radius:6px;font-size:.55rem;cursor:pointer;font-family:inherit">🎯 目標設定</button>
@@ -2303,7 +2305,7 @@ function openModal(type,extra){
     $('#mSave').onclick=()=>{saveApiSettings();$('#modalBg').classList.remove('show');syncPull();fetchYT();fetchNN();};
     setTimeout(()=>{
       // 入力欄を離れたら即保存
-      ['sG','sT','yK','yC','nnU'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('blur',saveApiSettings);});
+      // 入力欄は読み取り専用のため blur イベント不要
       const ex=$('#btnExport');if(ex)ex.addEventListener('click',exportData);
       const fi=$('#fileImport');if(fi)fi.addEventListener('change',e=>{if(e.target.files[0])importData(e.target.files[0]);});
       const fo=$('#fileOverwrite');if(fo)fo.addEventListener('change',e=>{if(e.target.files[0])overwriteData(e.target.files[0]);});
