@@ -1,6 +1,6 @@
-const V='v103';
+const V='v104';
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(V).then(c=>c.addAll(['./index.html','./','./manifest.json','./music-hub.html'])));
+  e.waitUntil(caches.open(V).then(c=>c.addAll(['./index.html','./','./manifest.json','./music-hub.html','./music-hub-sync.json'])));
   self.skipWaiting();
 });
 self.addEventListener('activate',e=>{
@@ -12,6 +12,14 @@ self.addEventListener('fetch',e=>{
   const url=new URL(e.request.url);
   // GitHub API などの外部リクエストはスルー
   if(url.origin!==location.origin)return;
+  if(url.pathname.endsWith('/music-hub-sync.json')){
+    e.respondWith(
+      fetch(e.request,{cache:'no-store'})
+        .then(r=>r.ok ? caches.open(V).then(cache=>{cache.put(e.request,r.clone()); return r;}) : r)
+        .catch(()=>caches.match(e.request).then(r=>r||new Response('{"gistId":"","updated":""}',{headers:{'Content-Type':'application/json'}})))
+    );
+    return;
+  }
   const isHTML=e.request.mode==='navigate'||url.pathname.endsWith('/')||url.pathname.endsWith('/index.html');
   if(isHTML){
     // HTML はネット優先（更新を最速反映）

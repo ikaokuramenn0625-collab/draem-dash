@@ -302,6 +302,25 @@ body{min-height:100dvh}
   font-size:.68rem;
   margin-top:14px;
 }
+.sync-channel{
+  display:none;
+  margin-top:-2px;
+}
+.sync-channel.show{
+  display:block;
+}
+.sync-channel .row{
+  flex-wrap:wrap;
+}
+.sync-channel-state{
+  color:var(--gold-2);
+  font-size:.72rem;
+}
+.sync-channel-text{
+  color:var(--sub);
+  font-size:.8rem;
+  line-height:1.6;
+}
 .fab{
   position:fixed;
   right:16px;
@@ -365,6 +384,19 @@ a.inline-link{color:var(--gold-2)}
         <button class="icon-btn" id="pushBtn" title="送信">⇪</button>
       </div>
     </div>
+
+    <section class="card sync-channel" id="syncChannelCard">
+      <div class="section-title">
+        <h2>Sync Channel</h2>
+        <span class="tiny sync-channel-state" id="syncChannelState">読み込み中</span>
+      </div>
+      <div class="sync-channel-text" id="syncChannelText">共有同期先を確認しています。</div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ghost small" id="loadSharedChannelBtn">共有同期先を読む</button>
+        <button class="btn ghost small" id="adoptSharedChannelBtn">共有同期先に合わせる</button>
+        <button class="btn gold small" id="shareLocalChannelBtn">この端末の同期先を共有</button>
+      </div>
+    </section>
 
     <section class="card hero">
       <div class="eyebrow">Music First</div>
@@ -516,6 +548,8 @@ a.inline-link{color:var(--gold-2)}
 const STORAGE_KEY = "codex_music_hub_db";
 const COOKIE_KEY = "codex_music_hub_backup";
 const GIST_FILENAME = "codex_music_hub.json";
+const SHARED_SYNC_FILE = "music-hub-sync.json";
+const SHARED_SYNC_URL = `./${SHARED_SYNC_FILE}`;
 const PHASES = ["企画","作曲","アレンジ","仮歌","制作","MV","配信","分析"];
 const DEFAULT_DB = {
   ver: 1,
@@ -552,6 +586,7 @@ let DB = loadDB();
 let pushTimer = null;
 let syncBusy = false;
 let syncPending = false;
+let sharedSync = { gistId: "", updated: "", note: "" };
 
 function uid(){
   return `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
@@ -641,6 +676,115 @@ function loadDB(){
     }
   };
   return db;
+}
+
+function setSharedSyncState(kind, text){
+  const card = document.getElementById("syncChannelCard");
+  const state = document.getElementById("syncChannelState");
+  const body = document.getElementById("syncChannelText");
+  if(card) card.classList.add("show");
+  if(state) state.textContent = kind;
+  if(body) body.textContent = text;
+}
+
+function toBase64Utf8(text){
+  return btoa(unescape(encodeURIComponent(text)));
+}
+
+async function loadSharedSyncChannel(force = false){
+  try{
+    const res = await fetch(`${SHARED_SYNC_URL}?t=${Date.now()}`, { cache:"no-store" });
+    if(!res.ok) {
+      if(force) setSharedSyncState("missing", "共有同期先がまだありません。先に1台で同期先を作って共有してください。");
+      return null;
+    }
+    const json = await res.json();
+    sharedSync = {
+      gistId: json?.gistId || "",
+      updated: json?.updated || "",
+      note: json?.note || ""
+    };
+    if(sharedSync.gistId && !DB.apiSettings.gist.id){
+      DB.apiSettings.gist.id = sharedSync.gistId;
+      persistState();
+      setSharedSyncState("loaded", `共有同期先 ${sharedSync.gistId.slice(-6)} を読み込みました。`);
+      return sharedSync;
+    }
+    if(sharedSync.gistId && DB.apiSettings.gist.id && sharedSync.gistId !== DB.apiSettings.gist.id){
+      setSharedSyncState("mismatch", `この端末は ${DB.apiSettings.gist.id.slice(-6)}、共有先は ${sharedSync.gistId.slice(-6)} です。揃えれば同期します。`);
+      return sharedSync;
+    }
+    if(DB.apiSettings.gist.id && !sharedSync.gistId){
+      await publishSharedSyncChannel(true);
+      setSharedSyncState("published", `この端末の同期先 ${DB.apiSettings.gist.id.slice(-6)} を共有ファイルに書きました。`);
+      return sharedSync;
+    }
+    setSharedSyncState("ready", sharedSync.gistId ? `共有同期先 ${sharedSync.gistId.slice(-6)} を使用中です。` : "共有同期先は未設定です。");
+    return sharedSync;
+  }catch(err){
+    console.error(err);
+    setSharedSyncState("error", "共有同期先の読み込みに失敗しました。");
+    return null;
+  }
+}
+
+async function publishSharedSyncChannel(silent = false){
+  const gist = gc();
+  if(!gist.id || !gist.token) return false;
+  const payload = {
+    gistId: gist.id,
+    updated: nowISO(),
+    note: "Shared sync channel for Music Hub"
+  };
+  try{
+    const metaRes = await fetch(`https://api.github.com/repos/ryu625/draem-dash/contents/${SHARED_SYNC_FILE}?ref=main&t=${Date.now()}`, {
+      headers:{
+        "Authorization":`Bearer ${gist.token}`,
+        "Accept":"application/vnd.github+json"
+      },
+      cache:"no-store"
+    });
+    let sha = "";
+    if(metaRes.ok){
+      const metaJson = await metaRes.json();
+      sha = metaJson?.sha || "";
+    }
+    const res = await fetch(`https://api.github.com/repos/ryu625/draem-dash/contents/${SHARED_SYNC_FILE}`, {
+      method:"PUT",
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":`Bearer ${gist.token}`,
+        "Accept":"application/vnd.github+json"
+      },
+      cache:"no-store",
+      body: JSON.stringify({
+        message: "chore: update music hub sync channel",
+        content: toBase64Utf8(JSON.stringify(payload, null, 2)),
+        branch: "main",
+        ...(sha ? { sha } : {})
+      })
+    });
+    if(!res.ok) throw new Error("共有同期先の保存に失敗");
+    sharedSync = payload;
+    if(!silent) setSharedSyncState("published", `共有同期先を ${gist.id.slice(-6)} に更新しました。`);
+    return true;
+  }catch(err){
+    console.error(err);
+    if(!silent) setSharedSyncState("error", `共有同期先の更新に失敗: ${err?.message || err}`);
+    return false;
+  }
+}
+
+async function adoptSharedSyncChannel(){
+  if(!sharedSync.gistId){
+    await loadSharedSyncChannel(true);
+  }
+  if(!sharedSync.gistId) return false;
+  DB.apiSettings.gist.id = sharedSync.gistId;
+  persistState();
+  setSharedSyncState("adopted", `共有同期先 ${sharedSync.gistId.slice(-6)} に合わせました。`);
+  await syncPull();
+  return true;
 }
 
 function saveDB(push = true){
@@ -754,6 +898,9 @@ async function syncPush(immediate = false){
       DB.meta.lastPushedAt = nowISO();
       DB.meta.lastRemoteUpdated = DB.updated || "";
       persistState();
+    }
+    if(sharedSync.gistId !== gistId){
+      await publishSharedSyncChannel(true);
     }
     updateStatus("ok");
   }catch(err){
@@ -954,7 +1101,7 @@ function updateStatus(kind = ""){
   if(kind === "ok"){ el.textContent = "synced"; return; }
   if(kind === "error"){ el.textContent = "sync error"; return; }
   const gist = gc();
-  el.textContent = gist.id && gist.token ? "ready" : "local only";
+  el.textContent = gist.id && gist.token ? `ready ${gist.id.slice(-6)}` : "local only";
 }
 
 function escapeHtml(value){
@@ -1069,6 +1216,9 @@ function bindEvents(){
   });
   document.getElementById("refreshBtn").addEventListener("click", ()=>syncPull());
   document.getElementById("pushBtn").addEventListener("click", ()=>syncPush(true));
+  document.getElementById("loadSharedChannelBtn").addEventListener("click", async ()=>{ await loadSharedSyncChannel(true); });
+  document.getElementById("adoptSharedChannelBtn").addEventListener("click", async ()=>{ await adoptSharedSyncChannel(); });
+  document.getElementById("shareLocalChannelBtn").addEventListener("click", async ()=>{ await publishSharedSyncChannel(false); });
   document.getElementById("copyBriefBtn").addEventListener("click", async ()=>{
     await navigator.clipboard.writeText(buildBrief());
     updateStatus("ok");
@@ -1158,10 +1308,16 @@ function bindEvents(){
   setInterval(syncPull, 10000);
 }
 
-render();
-bindEvents();
-updateStatus();
-syncPull();
+async function boot(){
+  render();
+  bindEvents();
+  updateStatus();
+  await loadSharedSyncChannel();
+  render();
+  syncPull();
+}
+
+boot();
 </script>
 </body>
 </html>
