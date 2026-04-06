@@ -321,6 +321,26 @@ body{min-height:100dvh}
   font-size:.8rem;
   line-height:1.6;
 }
+.quick-tools{
+  margin-top:8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+.quick-toggle{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  font-size:.78rem;
+  color:var(--sub);
+}
+.quick-preview{
+  margin-top:8px;
+  font-size:.78rem;
+  color:var(--sub);
+  line-height:1.5;
+}
 .fab{
   position:fixed;
   right:16px;
@@ -412,11 +432,17 @@ a.inline-link{color:var(--gold-2)}
       </div>
       <textarea class="textarea" id="quickCaptureInput" placeholder="例:&#10;P: 新曲 再起 / 作曲&#10;Q: Bメロのコード3案を作る&#10;R: サビ詞が弱い&#10;I: メロ断片 4小節"></textarea>
       <div class="row" style="margin-top:10px">
+        <button class="btn gold small" id="quickCaptureSmartBtn">ワンタップ実行</button>
         <button class="btn gold small" id="quickCaptureApplyBtn">自動整理</button>
         <button class="btn gold small" id="quickCaptureMusicBtn">楽曲メモ解析</button>
         <button class="btn ghost small" id="quickCapturePasteBtn">クリップボード取込</button>
         <button class="btn ghost small" id="quickCaptureSampleBtn">サンプル</button>
       </div>
+      <div class="quick-tools">
+        <label class="quick-toggle"><input type="checkbox" id="quickCaptureAutoPaste" checked> 貼り付け時に即実行</label>
+        <button class="btn ghost small" id="quickCaptureUndoBtn">1つ前に戻す</button>
+      </div>
+      <div class="quick-preview" id="quickCapturePreview">判定待ち</div>
       <div class="tiny" style="margin-top:8px;color:var(--sub)">`P/Q/R/I` 形式は「自動整理」。`曲名/BPM/Key/[コード]` 形式は「楽曲メモ解析」を押してください。</div>
     </section>
 
@@ -608,6 +634,7 @@ let pushTimer = null;
 let syncBusy = false;
 let syncPending = false;
 let sharedSync = { gistId: "", updated: "", note: "" };
+let lastCaptureSnapshot = null;
 
 function uid(){
   return `${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
@@ -1431,6 +1458,89 @@ function parseQuickCaptureLine(line){
   return { type: "Q", text: raw };
 }
 
+function looksMusicMemo(rawText){
+  const text = String(rawText || "");
+  if(!text.trim()) return false;
+  if(/\[[^\]]+\]/.test(text)) return true;
+  const hit = [
+    /(?:曲名|title)\s*[:：]/i,
+    /(?:\bBPM\b)\s*[:：]?\s*\d{2,3}/i,
+    /(?:\bKEY\b|キー)\s*[:：]/i,
+    /(?:phase|フェーズ)\s*[:：]/i
+  ].filter(rx => rx.test(text)).length;
+  return hit >= 2;
+}
+
+function getQuickCaptureAutoPaste(){
+  const saved = localStorage.getItem("quick_capture_auto_paste");
+  if(saved === null) return true;
+  return saved === "1";
+}
+
+function setQuickCaptureAutoPaste(enabled){
+  localStorage.setItem("quick_capture_auto_paste", enabled ? "1" : "0");
+}
+
+function buildQuickCapturePreview(rawText){
+  const text = String(rawText || "").trim();
+  if(!text) return "判定待ち";
+  if(looksMusicMemo(text)){
+    const chords = parseChordsFromText(text);
+    const hasTitle = /(?:曲名|title)\s*[:：]/i.test(text);
+    const hasBpm = /(?:\bBPM\b)\s*[:：]?\s*\d{2,3}/i.test(text);
+    const hasKey = /(?:\bKEY\b|キー)\s*[:：]/i.test(text);
+    return `モード: 楽曲メモ解析 / 曲名:${hasTitle ? "有" : "無"} BPM:${hasBpm ? "有" : "無"} Key:${hasKey ? "有" : "無"} コード:${chords.length}`;
+  }
+  const lines = text.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+  const counters = { P: 0, Q: 0, R: 0, I: 0 };
+  lines.forEach(line=>{
+    const parsed = parseQuickCaptureLine(line);
+    if(!parsed) return;
+    if(counters[parsed.type] !== undefined) counters[parsed.type] += 1;
+  });
+  return `モード: 自動整理 / 曲:${counters.P} 依頼:${counters.Q} リスク:${counters.R} Inbox:${counters.I}`;
+}
+
+function refreshQuickCapturePreview(){
+  const input = document.getElementById("quickCaptureInput");
+  const view = document.getElementById("quickCapturePreview");
+  if(!input || !view) return;
+  view.textContent = buildQuickCapturePreview(input.value);
+}
+
+function snapshotForUndo(){
+  lastCaptureSnapshot = deepClone(DB);
+}
+
+function undoLastCapture(){
+  if(!lastCaptureSnapshot){
+    const label = document.getElementById("quickCaptureResult");
+    if(label) label.textContent = "戻せる操作がありません。";
+    return;
+  }
+  DB = deepClone(lastCaptureSnapshot);
+  lastCaptureSnapshot = null;
+  persistState();
+  render();
+  const label = document.getElementById("quickCaptureResult");
+  if(label) label.textContent = "1つ前の状態に戻しました。";
+}
+
+function runSmartCapture(rawText){
+  const text = String(rawText || "").trim();
+  if(!text){
+    const label = document.getElementById("quickCaptureResult");
+    if(label) label.textContent = "入力が空です。";
+    return;
+  }
+  snapshotForUndo();
+  if(looksMusicMemo(text)){
+    applyMusicMemo(text);
+  }else{
+    applyQuickCapture(text);
+  }
+}
+
 function applyQuickCapture(rawText){
   const lines = String(rawText || "").split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
   let addedProject = 0;
@@ -1603,20 +1713,40 @@ function bindEvents(){
   document.getElementById("addProjectBtn").addEventListener("click", addProject);
   document.getElementById("addQueueBtn").addEventListener("click", addQueue);
   document.getElementById("addRiskBtn").addEventListener("click", addRisk);
+  document.getElementById("quickCaptureSmartBtn").addEventListener("click", ()=>{
+    runSmartCapture(document.getElementById("quickCaptureInput").value);
+    document.getElementById("quickCaptureInput").value = "";
+    refreshQuickCapturePreview();
+  });
   document.getElementById("quickCaptureApplyBtn").addEventListener("click", ()=>{
+    snapshotForUndo();
     applyQuickCapture(document.getElementById("quickCaptureInput").value);
     document.getElementById("quickCaptureInput").value = "";
+    refreshQuickCapturePreview();
   });
   document.getElementById("quickCaptureMusicBtn").addEventListener("click", ()=>{
+    snapshotForUndo();
     applyMusicMemo(document.getElementById("quickCaptureInput").value);
     document.getElementById("quickCaptureInput").value = "";
+    refreshQuickCapturePreview();
+  });
+  document.getElementById("quickCaptureUndoBtn").addEventListener("click", undoLastCapture);
+  document.getElementById("quickCaptureAutoPaste").addEventListener("change", e=>{
+    setQuickCaptureAutoPaste(Boolean(e.target.checked));
   });
   document.getElementById("quickCapturePasteBtn").addEventListener("click", async ()=>{
     try{
       const clip = await navigator.clipboard.readText();
       document.getElementById("quickCaptureInput").value = clip || "";
-      applyQuickCapture(clip || "");
-      document.getElementById("quickCaptureInput").value = "";
+      refreshQuickCapturePreview();
+      if(getQuickCaptureAutoPaste()){
+        runSmartCapture(clip || "");
+        document.getElementById("quickCaptureInput").value = "";
+        refreshQuickCapturePreview();
+      }else{
+        const label = document.getElementById("quickCaptureResult");
+        if(label) label.textContent = "貼り付けました。ワンタップ実行で反映できます。";
+      }
     }catch{
       const label = document.getElementById("quickCaptureResult");
       if(label) label.textContent = "クリップボード読込に失敗。手動で貼ってください。";
@@ -1626,6 +1756,7 @@ function bindEvents(){
     document.getElementById("quickCaptureInput").value = "曲名: 再起\nphase: 作曲\nBPM: 136\nKey: Bm\n[Gm7(b5)] [Gb(maj7)] [Bm7] [Ebm7] [Eb(7)] [Fm7]";
     const label = document.getElementById("quickCaptureResult");
     if(label) label.textContent = "サンプルを入れました。";
+    refreshQuickCapturePreview();
   });
   document.getElementById("riskText").addEventListener("keydown", e=>{ if(e.key === "Enter"){ e.preventDefault(); addRisk(); } });
   document.getElementById("addInboxBtn").addEventListener("click", addInbox);
@@ -1634,10 +1765,12 @@ function bindEvents(){
   document.getElementById("quickCaptureInput").addEventListener("keydown", e=>{
     if((e.metaKey || e.ctrlKey) && e.key === "Enter"){
       e.preventDefault();
-      applyQuickCapture(document.getElementById("quickCaptureInput").value);
+      runSmartCapture(document.getElementById("quickCaptureInput").value);
       document.getElementById("quickCaptureInput").value = "";
+      refreshQuickCapturePreview();
     }
   });
+  document.getElementById("quickCaptureInput").addEventListener("input", refreshQuickCapturePreview);
 
   document.getElementById("settingsBtn").addEventListener("click", ()=>document.getElementById("settingsModal").classList.add("show"));
   document.getElementById("closeSettingsBtn").addEventListener("click", ()=>document.getElementById("settingsModal").classList.remove("show"));
@@ -1745,6 +1878,9 @@ function bindEvents(){
 async function boot(){
   render();
   bindEvents();
+  const autoPaste = document.getElementById("quickCaptureAutoPaste");
+  if(autoPaste) autoPaste.checked = getQuickCaptureAutoPaste();
+  refreshQuickCapturePreview();
   updateStatus();
   await loadSharedSyncChannel();
   render();
