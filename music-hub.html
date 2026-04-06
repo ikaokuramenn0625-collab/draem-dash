@@ -430,11 +430,19 @@ a.inline-link{color:var(--gold-2)}
         <h2>Quick Capture</h2>
         <span class="tiny" id="quickCaptureResult">雑に貼ってOK</span>
       </div>
-      <textarea class="textarea" id="quickCaptureInput" placeholder="例:&#10;P: 新曲 再起 / 作曲&#10;Q: Bメロのコード3案を作る&#10;R: サビ詞が弱い&#10;I: メロ断片 4小節"></textarea>
+      <textarea class="textarea" id="quickCaptureInput" placeholder="例:&#10;新曲 再起 / 作曲&#10;Bメロのコード3案を作る&#10;サビ詞が弱い"></textarea>
+      <div class="row" style="margin-top:10px">
+        <select class="select" id="quickCaptureMode" style="max-width:180px">
+          <option value="auto">自動判定</option>
+          <option value="music">楽曲メモとして追加</option>
+          <option value="project">曲として追加</option>
+          <option value="queue">依頼として追加</option>
+          <option value="risk">リスクとして追加</option>
+          <option value="inbox">Inboxとして追加</option>
+        </select>
+      </div>
       <div class="row" style="margin-top:10px">
         <button class="btn gold small" id="quickCaptureSmartBtn">ワンタップ実行</button>
-        <button class="btn gold small" id="quickCaptureApplyBtn">自動整理</button>
-        <button class="btn gold small" id="quickCaptureMusicBtn">楽曲メモ解析</button>
         <button class="btn ghost small" id="quickCapturePasteBtn">クリップボード取込</button>
         <button class="btn ghost small" id="quickCaptureSampleBtn">サンプル</button>
       </div>
@@ -443,7 +451,7 @@ a.inline-link{color:var(--gold-2)}
         <button class="btn ghost small" id="quickCaptureUndoBtn">1つ前に戻す</button>
       </div>
       <div class="quick-preview" id="quickCapturePreview">判定待ち</div>
-      <div class="tiny" style="margin-top:8px;color:var(--sub)">`P/Q/R/I` 形式は「自動整理」。`曲名/BPM/Key/[コード]` 形式は「楽曲メモ解析」を押してください。</div>
+      <div class="tiny" style="margin-top:8px;color:var(--sub)">モードを選んで貼るだけ。`P/Q/R/I` の接頭辞は不要です（書いてもOK）。</div>
     </section>
 
     <section class="card">
@@ -1059,7 +1067,7 @@ async function syncPush(immediate = false){
     console.error(err);
     DB.meta.lastSyncError = err?.message || String(err);
     persistState();
-    updateStatus("error");
+    updateStatus("degraded");
   }finally{
     syncBusy = false;
     if(syncPending){
@@ -1114,7 +1122,7 @@ async function syncPull(options = {}){
       console.error(repoErr);
       DB.meta.lastSyncError = repoErr?.message || String(repoErr);
       persistState();
-      if(!quiet) updateStatus("error");
+      if(!quiet) updateStatus("degraded");
       return null;
     }
   }
@@ -1321,7 +1329,14 @@ function updateStatus(kind = ""){
   if(kind === "syncing"){ el.textContent = "syncing"; return; }
   if(kind === "waiting"){ el.textContent = "saving"; return; }
   if(kind === "ok"){ el.textContent = "synced"; return; }
-  if(kind === "error"){ el.textContent = "sync error"; return; }
+  if(kind === "degraded"){ el.textContent = "local saved"; return; }
+  if(kind === "error"){
+    const msg = String(DB?.meta?.lastSyncError || "");
+    if(/401|403|token|auth/i.test(msg)){ el.textContent = "sync auth"; return; }
+    if(/fetch|network|offline/i.test(msg)){ el.textContent = "offline"; return; }
+    el.textContent = "sync retry";
+    return;
+  }
   const gist = gc();
   if(gist.id && gist.token){
     el.textContent = `ready ${gist.id.slice(-6)}`;
@@ -1458,6 +1473,19 @@ function parseQuickCaptureLine(line){
   return { type: "Q", text: raw };
 }
 
+function getCaptureMode(){
+  const el = document.getElementById("quickCaptureMode");
+  return el?.value || "auto";
+}
+
+function mapModeToType(mode){
+  if(mode === "project") return "P";
+  if(mode === "queue") return "Q";
+  if(mode === "risk") return "R";
+  if(mode === "inbox") return "I";
+  return "";
+}
+
 function looksMusicMemo(rawText){
   const text = String(rawText || "");
   if(!text.trim()) return false;
@@ -1481,9 +1509,33 @@ function setQuickCaptureAutoPaste(enabled){
   localStorage.setItem("quick_capture_auto_paste", enabled ? "1" : "0");
 }
 
+function getQuickCaptureMode(){
+  const saved = localStorage.getItem("quick_capture_mode");
+  return saved || "auto";
+}
+
+function setQuickCaptureMode(mode){
+  localStorage.setItem("quick_capture_mode", mode || "auto");
+}
+
 function buildQuickCapturePreview(rawText){
+  const mode = getCaptureMode();
   const text = String(rawText || "").trim();
   if(!text) return "判定待ち";
+  if(mode !== "auto"){
+    if(mode === "music"){
+      const chords = parseChordsFromText(text);
+      return `モード: 楽曲メモとして追加 / コード:${chords.length}`;
+    }
+    const modeLabelMap = {
+      project: "曲として追加",
+      queue: "依頼として追加",
+      risk: "リスクとして追加",
+      inbox: "Inboxとして追加"
+    };
+    const count = text.split(/\r?\n/).map(v=>v.trim()).filter(Boolean).length;
+    return `モード: ${modeLabelMap[mode] || "自動判定"} / 行数:${count}`;
+  }
   if(looksMusicMemo(text)){
     const chords = parseChordsFromText(text);
     const hasTitle = /(?:曲名|title)\s*[:：]/i.test(text);
@@ -1534,14 +1586,24 @@ function runSmartCapture(rawText){
     return;
   }
   snapshotForUndo();
-  if(looksMusicMemo(text)){
+  const mode = getCaptureMode();
+  if(mode === "music"){
     applyMusicMemo(text);
-  }else{
-    applyQuickCapture(text);
+    return;
   }
+  if(mode === "auto"){
+    if(looksMusicMemo(text)){
+      applyMusicMemo(text);
+    }else{
+      applyQuickCapture(text, { forcedType: "" });
+    }
+    return;
+  }
+  applyQuickCapture(text, { forcedType: mapModeToType(mode) });
 }
 
-function applyQuickCapture(rawText){
+function applyQuickCapture(rawText, options = {}){
+  const forcedType = options.forcedType || "";
   const lines = String(rawText || "").split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
   let addedProject = 0;
   let addedQueue = 0;
@@ -1550,9 +1612,10 @@ function applyQuickCapture(rawText){
   lines.forEach(line=>{
     const parsed = parseQuickCaptureLine(line);
     if(!parsed) return;
-    if(parsed.type === "P"){ if(addProjectEntry(parsed.text)) addedProject += 1; return; }
-    if(parsed.type === "R"){ if(addRiskEntry(parsed.text)) addedRisk += 1; return; }
-    if(parsed.type === "I"){ if(addInboxEntry(parsed.text)) addedInbox += 1; return; }
+    const effectiveType = forcedType || parsed.type;
+    if(effectiveType === "P"){ if(addProjectEntry(parsed.text)) addedProject += 1; return; }
+    if(effectiveType === "R"){ if(addRiskEntry(parsed.text)) addedRisk += 1; return; }
+    if(effectiveType === "I"){ if(addInboxEntry(parsed.text)) addedInbox += 1; return; }
     if(addQueueEntry(parsed.text)) addedQueue += 1;
   });
   if(addedProject || addedQueue || addedRisk || addedInbox){
@@ -1713,20 +1776,12 @@ function bindEvents(){
   document.getElementById("addProjectBtn").addEventListener("click", addProject);
   document.getElementById("addQueueBtn").addEventListener("click", addQueue);
   document.getElementById("addRiskBtn").addEventListener("click", addRisk);
+  document.getElementById("quickCaptureMode").addEventListener("change", e=>{
+    setQuickCaptureMode(e.target.value);
+    refreshQuickCapturePreview();
+  });
   document.getElementById("quickCaptureSmartBtn").addEventListener("click", ()=>{
     runSmartCapture(document.getElementById("quickCaptureInput").value);
-    document.getElementById("quickCaptureInput").value = "";
-    refreshQuickCapturePreview();
-  });
-  document.getElementById("quickCaptureApplyBtn").addEventListener("click", ()=>{
-    snapshotForUndo();
-    applyQuickCapture(document.getElementById("quickCaptureInput").value);
-    document.getElementById("quickCaptureInput").value = "";
-    refreshQuickCapturePreview();
-  });
-  document.getElementById("quickCaptureMusicBtn").addEventListener("click", ()=>{
-    snapshotForUndo();
-    applyMusicMemo(document.getElementById("quickCaptureInput").value);
     document.getElementById("quickCaptureInput").value = "";
     refreshQuickCapturePreview();
   });
@@ -1880,6 +1935,8 @@ async function boot(){
   bindEvents();
   const autoPaste = document.getElementById("quickCaptureAutoPaste");
   if(autoPaste) autoPaste.checked = getQuickCaptureAutoPaste();
+  const mode = document.getElementById("quickCaptureMode");
+  if(mode) mode.value = getQuickCaptureMode();
   refreshQuickCapturePreview();
   updateStatus();
   await loadSharedSyncChannel();
