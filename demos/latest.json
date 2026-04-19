@@ -13,6 +13,8 @@
       "source_url": "https://reddit.com/r/DigitalMarketing/comments/1slqb8j/",
       "feasibility": 9,
       "market_signal": 8,
+      "price_yen": 980,
+      "monetization": "月額サブスク ¥980 (毎朝メール5件配信 + Claude下書きコメント生成)",
       "demo_path": "demos/2026-04-19/demo-1.html"
     },
     {
@@ -25,6 +27,8 @@
       "source_url": "https://reddit.com/r/WeAreTheMusicMakers/comments/1sk7635/",
       "feasibility": 9,
       "market_signal": 7,
+      "price_yen": 480,
+      "monetization": "買切 ¥480 or 月額¥280 (モバイルアプリ + 弱点トラッキング)",
       "demo_path": "demos/2026-04-19/demo-2.html"
     },
     {
@@ -37,6 +41,8 @@
       "source_url": "https://reddit.com/r/productivity/comments/1skudic/",
       "feasibility": 8,
       "market_signal": 8,
+      "price_yen": 680,
+      "monetization": "月額サブスク ¥680 (Claude API 文脈理解 + Notion連携 + 音声入力)",
       "demo_path": "demos/2026-04-19/demo-3.html"
     },
     {
@@ -49,6 +55,8 @@
       "source_url": "https://reddit.com/r/edmproduction/comments/1so67x9/",
       "feasibility": 7,
       "market_signal": 9,
+      "price_yen": 1980,
+      "monetization": "DAW プラグイン 買切¥1,980 (FL/Ableton/Logic)",
       "demo_path": "demos/2026-04-19/demo-4.html"
     },
     {
@@ -61,6 +69,8 @@
       "source_url": "https://reddit.com/r/webdev",
       "feasibility": 9,
       "market_signal": 7,
+      "price_yen": 1280,
+      "monetization": "月額サブスク ¥1,280 (Slack取込 + クライアント共有 + 請求書連携)",
       "demo_path": "demos/2026-04-19/demo-5.html"
     }
   ]

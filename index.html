@@ -2634,6 +2634,13 @@ async function renderDemoLab(){
       return;
     }
     const fbAll = DB.demoFeedback;
+    // Load Stripe links status (best-effort)
+    let stripeLinks = {};
+    try {
+      const sr = await fetch('demos/_shared/stripe_links.json?_=' + Date.now(), {cache:'no-store'});
+      if(sr.ok) stripeLinks = await sr.json();
+    } catch(e) {}
+
     el.innerHTML = `<div class="dlab-meta">${m.date} · ${demos.length}件 · generator: ${m.generator||'auto'}</div>` +
       demos.map(d => {
         const fbKey = `${m.date}_${d.id}`;
@@ -2643,7 +2650,13 @@ async function renderDemoLab(){
         const stLabel = st === 'go' ? '✓ 進める' : st === 'keep' ? '◌ 保留' : st === 'drop' ? '✗ 却下' : '';
         const stClass = st ? ` dcard-status ${st}` : 'dcard-status';
         const stTag = st ? `<span class="${stClass}">${stLabel}</span>` : '';
-        return `<div class="dcard ${doneClass}" data-fbkey="${fbKey}">
+        const price = d.price_yen ? `¥${d.price_yen.toLocaleString()}` : '—';
+        const monetize = d.monetization || '';
+        const hasStripe = !!stripeLinks[d.id];
+        const stripeBadge = hasStripe
+          ? '<span class="tag" style="color:var(--grn)">💳 Stripe ✓</span>'
+          : '<span class="tag" style="color:var(--red)">💳 未設定</span>';
+        return `<div class="dcard ${doneClass}" data-fbkey="${fbKey}" data-demoid="${d.id}">
           <div class="dcard-head">
             <div class="dcard-title">${(d.title||'').replace(/</g,'&lt;')}</div>
             ${stTag}
@@ -2654,13 +2667,17 @@ async function renderDemoLab(){
             <span class="tag">🎯 ${(d.target_user||'').replace(/</g,'&lt;')}</span>
             <span class="tag">実装度 ${d.feasibility||'-'}/10</span>
             <span class="tag">市場 ${d.market_signal||'-'}/10</span>
+            <span class="tag">💰 ${price}</span>
+            ${stripeBadge}
           </div>
+          ${monetize ? `<div class="dcard-monetize" style="font-size:.55rem;color:var(--t2);margin-bottom:.4rem;line-height:1.5">${monetize.replace(/</g,'&lt;')}</div>` : ''}
           <div class="dcard-actions">
             <a href="${d.demo_path}" target="_blank" class="primary">▶ 試す</a>
             <button class="go ${st==='go'?'sel-go':''}" data-act="go">進める</button>
             <button class="keep ${st==='keep'?'sel-keep':''}" data-act="keep">保留</button>
             <button class="drop ${st==='drop'?'sel-drop':''}" data-act="drop">却下</button>
             <button data-act="note">✏️</button>
+            <button data-act="reply" title="Reddit返信文を作成">💬</button>
           </div>
           <textarea class="dcard-note ${fb.note?'on':''}" placeholder="メモ / FB（次の日にAIが読み込む）">${fb.note||''}</textarea>
         </div>`;
@@ -2676,6 +2693,18 @@ async function renderDemoLab(){
             const n = card.querySelector('.dcard-note');
             n.classList.toggle('on');
             if(n.classList.contains('on')) n.focus();
+            return;
+          }
+          if(act === 'reply'){
+            const demoId = card.dataset.demoid;
+            const d = demos.find(x => x.id === demoId);
+            if(!d) return;
+            const url = `https://ryu625.github.io/draem-dash/${d.demo_path}?utm_source=reddit&utm_medium=reply&utm_campaign=${d.id}&ref=${m.date}`;
+            const reply = `Hey — your post made me think about exactly this pain.\n\nI put together a quick demo: **${d.title}**.\n${d.value_prop}\n\nYou can try it here (no signup, mobile-friendly):\n${url}\n\nIt's a prototype — would love to know:\n1. Does it match what you were looking for?\n2. What would make you actually use it?\n\nBuilt this after reading your post, feedback welcome.`;
+            navigator.clipboard.writeText(reply).then(()=>{
+              b.textContent = '✓';
+              setTimeout(()=>{b.textContent = '💬';}, 1500);
+            });
             return;
           }
           const prev = DB.demoFeedback[fbKey] || {};
