@@ -1,0 +1,67 @@
+{
+  "date": "2026-04-19",
+  "generated_at": "2026-04-19T00:00:00Z",
+  "generator": "seed-manual-v1",
+  "demos": [
+    {
+      "id": "demo-1",
+      "title": "Reddit Thread Finder",
+      "target_user": "デジマ担当 / ソロ起業家",
+      "problem": "Reddit マーケで貢献できる狙い目スレッドを探す手間が地獄。古すぎ / 人気すぎ / 無関係で埋もれる。",
+      "value_prop": "1時間の手動探索 → 5秒。新しめ & 適度に活発なスレだけ抽出。",
+      "source": "reddit/r/DigitalMarketing",
+      "source_url": "https://reddit.com/r/DigitalMarketing/comments/1slqb8j/",
+      "feasibility": 9,
+      "market_signal": 8,
+      "demo_path": "demos/2026-04-19/demo-1.html"
+    },
+    {
+      "id": "demo-2",
+      "title": "Chord Ear Trainer",
+      "target_user": "耳コピ苦手なギタリスト / プロデューサー",
+      "problem": "理論は知ってるのに実際の曲でコードが聞き分けられない。録音ソフト要らずで練習したい。",
+      "value_prop": "ブラウザで即練習。WebAudioで合成、4秒で回る高速フィードバックループ。",
+      "source": "reddit/r/WeAreTheMusicMakers",
+      "source_url": "https://reddit.com/r/WeAreTheMusicMakers/comments/1sk7635/",
+      "feasibility": 9,
+      "market_signal": 7,
+      "demo_path": "demos/2026-04-19/demo-2.html"
+    },
+    {
+      "id": "demo-3",
+      "title": "Journal → Actions",
+      "target_user": "思考型・ジャーナル書き・アウトプットが出ない人",
+      "problem": "毎日ジャーナルで考えを整理するがタスクに落ちない。アイデアと行動のギャップ。",
+      "value_prop": "ジャーナル貼付→3-5個のアクションに即変換。意志・時間・動詞を検出。",
+      "source": "reddit/r/productivity",
+      "source_url": "https://reddit.com/r/productivity/comments/1skudic/",
+      "feasibility": 8,
+      "market_signal": 8,
+      "demo_path": "demos/2026-04-19/demo-3.html"
+    },
+    {
+      "id": "demo-4",
+      "title": "Sample Vibe Finder",
+      "target_user": "DTM プロデューサー (FL/Ableton/Logic)",
+      "problem": "制作中、欲しい音の雰囲気は分かるがフォルダ探索で集中が切れる。同じ音ばかり使いがち。",
+      "value_prop": "'dark + punchy' でワンクリック絞り込み。プレビューすぐ再生。",
+      "source": "reddit/r/edmproduction",
+      "source_url": "https://reddit.com/r/edmproduction/comments/1so67x9/",
+      "feasibility": 7,
+      "market_signal": 9,
+      "demo_path": "demos/2026-04-19/demo-4.html"
+    },
+    {
+      "id": "demo-5",
+      "title": "Scope Change Tracker",
+      "target_user": "フリーランス web制作 / デザイナー",
+      "problem": "クライアント承認後に追加変更が止まらない。累計工数の可視化・見積文面作成が面倒。",
+      "value_prop": "要望を5秒ログ → 純増工数 & 金額を即計算 → クライアントメール文面まで自動生成。",
+      "source": "reddit/r/webdev",
+      "source_url": "https://reddit.com/r/webdev",
+      "feasibility": 9,
+      "market_signal": 7,
+      "demo_path": "demos/2026-04-19/demo-5.html"
+    }
+  ]
+}

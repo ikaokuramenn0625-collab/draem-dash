@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ear Training Chord Trainer — Demo</title>
+<style>
+:root{--bg:#0D0906;--s1:rgba(255,255,255,.04);--s2:rgba(255,255,255,.08);--gold:#C4A059;--gl:#DFC07A;--t1:#E8DDD0;--t2:#A89585;--t3:#6D5A4A;--grn:#5CB870;--red:#C45B5B}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t1);font-family:-apple-system,'Hiragino Sans',sans-serif;padding:1rem;max-width:680px;margin:0 auto;font-size:14px;line-height:1.5}
+h1{font-size:1.3rem;color:var(--gold);margin-bottom:.4rem}
+.sub{color:var(--t2);font-size:.8rem;margin-bottom:1rem}
+.card{background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:1rem;margin-bottom:.8rem}
+.prob{background:rgba(196,91,91,.08);border-left:3px solid var(--red);padding:.6rem .8rem;border-radius:6px;margin-bottom:1rem;font-size:.85rem}
+.prob b{color:var(--red)}
+.big{text-align:center;font-size:1.6rem;color:var(--gl);font-weight:700;margin:1rem 0}
+.row{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin-bottom:.6rem}
+button{background:var(--s2);color:var(--t1);border:1px solid rgba(255,255,255,.1);padding:.6rem .4rem;border-radius:6px;cursor:pointer;font-size:.85rem;font-family:inherit;transition:all .15s}
+button:hover{border-color:var(--gold)}
+button.play{background:var(--gold);color:var(--bg);font-weight:700;padding:.6rem 1rem}
+button.correct{background:rgba(92,184,112,.3);border-color:var(--grn)}
+button.wrong{background:rgba(196,91,91,.3);border-color:var(--red)}
+.stats{display:flex;justify-content:space-around;margin:.8rem 0;font-size:.8rem;color:var(--t2);text-align:center}
+.stats b{display:block;color:var(--gl);font-size:1.2rem}
+.hint{color:var(--t3);font-size:.75rem;margin-top:.4rem}
+.vp{background:rgba(92,184,112,.08);border-left:3px solid var(--grn);padding:.6rem .8rem;border-radius:6px;margin:1rem 0;font-size:.82rem}
+.ft{color:var(--t3);font-size:.7rem;margin-top:1rem;line-height:1.6}
+.ft b{color:var(--gold)}
+.src{color:var(--t3);font-size:.65rem;margin-top:.5rem}
+.src a{color:var(--t3)}
+</style></head>
+<body>
+<h1>🎵 Chord Ear Trainer</h1>
+<div class="sub">耳コピが苦手なギタリスト/プロデューサー向け・コード聞き分け練習</div>
+
+<div class="prob"><b>痛み:</b> 30代ギタリストの投稿 — 「耳コピが本当に疲れる。音楽理論は知ってるのにコードが聞き分けられない」。rhythm寄りで育ったので3度の聞き分けが弱い。</div>
+
+<div class="card">
+  <div style="text-align:center">
+    <button class="play" onclick="playChord()">▶ コードを再生</button>
+  </div>
+  <div class="big" id="status">クイズを開始</div>
+  <div class="row" id="choices"></div>
+  <div class="hint" id="hint"></div>
+</div>
+
+<div class="stats">
+  <div><b id="correct">0</b>正解</div>
+  <div><b id="total">0</b>問</div>
+  <div><b id="streak">0</b>連続</div>
+  <div><b id="acc">—</b>%</div>
+</div>
+
+<div class="vp"><b>価値:</b> ブラウザで即練習。WebAudio で音を合成するので録音不要。4秒 → 答え → フィードバック で回転が速い。</div>
+
+<div class="ft">
+  <b>本番版で追加される機能:</b><br>
+  ・マイクから実際の曲を録音 → リアルタイムでコード検出<br>
+  ・弱点パターン学習（Maj7 が弱い等）→ 重点的に出題<br>
+  ・進捗トラッキング & 毎日のストリーク<br>
+  ・iOS/Android ネイティブアプリ
+</div>
+
+<div class="src">Source: <a href="https://reddit.com/r/WeAreTheMusicMakers/comments/1sk7635/finding_songs_by_ear_is_honestly_really/" target="_blank">r/WeAreTheMusicMakers post</a></div>
+
+<script>
+const CHORDS = {
+  'C Major': [261.63, 329.63, 392.00],
+  'C Minor': [261.63, 311.13, 392.00],
+  'C Maj7':  [261.63, 329.63, 392.00, 493.88],
+  'C Dom7':  [261.63, 329.63, 392.00, 466.16],
+  'C Min7':  [261.63, 311.13, 392.00, 466.16],
+  'C Sus4':  [261.63, 349.23, 392.00],
+  'C Dim':   [261.63, 311.13, 369.99],
+  'C Aug':   [261.63, 329.63, 415.30],
+};
+let current = null, correct = 0, total = 0, streak = 0;
+let ctx = null;
+
+function ac(){ return ctx || (ctx = new (window.AudioContext||window.webkitAudioContext)()); }
+
+function playChord(){
+  if(!current) newQuiz();
+  const c = ac(); const now = c.currentTime;
+  const freqs = CHORDS[current];
+  freqs.forEach((f, i) => {
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.18, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
+    o.connect(g); g.connect(c.destination);
+    o.start(now); o.stop(now + 1.7);
+  });
+}
+
+function newQuiz(){
+  const keys = Object.keys(CHORDS);
+  const choices = [];
+  current = keys[Math.floor(Math.random()*keys.length)];
+  choices.push(current);
+  while(choices.length < 4){
+    const k = keys[Math.floor(Math.random()*keys.length)];
+    if(!choices.includes(k)) choices.push(k);
+  }
+  choices.sort(()=>Math.random()-0.5);
+  document.getElementById('status').textContent = '聴いて当てる';
+  document.getElementById('hint').textContent = '';
+  const row = document.getElementById('choices');
+  row.innerHTML = '';
+  choices.forEach(k=>{
+    const b = document.createElement('button');
+    b.textContent = k.replace('C ','');
+    b.onclick = () => answer(k, b);
+    row.appendChild(b);
+  });
+}
+
+function answer(k, btn){
+  total++;
+  if(k === current){
+    correct++; streak++;
+    btn.classList.add('correct');
+    document.getElementById('status').textContent = '✓ 正解';
+    document.getElementById('hint').textContent = `${current} でした`;
+  } else {
+    streak = 0;
+    btn.classList.add('wrong');
+    document.getElementById('status').textContent = '✗ 不正解';
+    document.getElementById('hint').textContent = `答え: ${current}`;
+  }
+  document.getElementById('correct').textContent = correct;
+  document.getElementById('total').textContent = total;
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('acc').textContent = Math.round(correct/total*100);
+  document.querySelectorAll('#choices button').forEach(b=>b.disabled=true);
+  setTimeout(()=>newQuiz(), 1500);
+}
+
+newQuiz();
+</script>
+</body></html>

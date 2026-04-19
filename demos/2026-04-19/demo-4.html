@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sample Vibe Finder — Demo</title>
+<style>
+:root{--bg:#0D0906;--s1:rgba(255,255,255,.04);--s2:rgba(255,255,255,.08);--gold:#C4A059;--gl:#DFC07A;--t1:#E8DDD0;--t2:#A89585;--t3:#6D5A4A;--grn:#5CB870;--red:#C45B5B}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t1);font-family:-apple-system,'Hiragino Sans',sans-serif;padding:1rem;max-width:680px;margin:0 auto;font-size:14px;line-height:1.5}
+h1{font-size:1.3rem;color:var(--gold);margin-bottom:.4rem}
+.sub{color:var(--t2);font-size:.8rem;margin-bottom:1rem}
+.card{background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:1rem;margin-bottom:.8rem}
+.prob{background:rgba(196,91,91,.08);border-left:3px solid var(--red);padding:.6rem .8rem;border-radius:6px;margin-bottom:1rem;font-size:.85rem}
+.prob b{color:var(--red)}
+.vibes{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem}
+.vibe{padding:.4rem .7rem;border-radius:20px;background:var(--s2);border:1px solid rgba(255,255,255,.1);cursor:pointer;font-size:.8rem;transition:all .15s}
+.vibe.on{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:700}
+.vibe:hover:not(.on){border-color:var(--gold)}
+.sample{display:flex;align-items:center;gap:.7rem;padding:.6rem .8rem;background:var(--s2);border-radius:8px;margin-bottom:.4rem}
+.play-btn{width:32px;height:32px;border-radius:50%;background:var(--gold);color:var(--bg);border:0;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.play-btn.playing{background:var(--red)}
+.sample-info{flex:1;min-width:0}
+.sample-name{font-weight:600;font-size:.88rem;line-height:1.3}
+.sample-tags{font-size:.7rem;color:var(--t3);margin-top:.15rem}
+.sample-tags .t{display:inline-block;padding:.08rem .35rem;background:rgba(196,160,89,.12);color:var(--gold);border-radius:3px;margin-right:.25rem;font-size:.65rem}
+.match{font-size:.7rem;color:var(--gl);font-weight:700;white-space:nowrap}
+.vp{background:rgba(92,184,112,.08);border-left:3px solid var(--grn);padding:.6rem .8rem;border-radius:6px;margin:1rem 0;font-size:.82rem}
+.ft{color:var(--t3);font-size:.7rem;margin-top:1rem;line-height:1.6}
+.ft b{color:var(--gold)}
+.src{color:var(--t3);font-size:.65rem;margin-top:.5rem}
+.src a{color:var(--t3)}
+label{display:block;font-size:.7rem;color:var(--t3);margin-bottom:.4rem}
+</style></head>
+<body>
+<h1>🎛 Sample Vibe Finder</h1>
+<div class="sub">FL Studio / DAW ユーザー向け・"ダーク" "パンチー" で音を即検索</div>
+
+<div class="prob"><b>痛み:</b> プロデューサー投稿 — 「制作中、欲しい音のタイプ（ダーク・パンチー）は分かるのに、フォルダ探索で集中が切れる。使い慣れたサンプルばかり使って似た曲になる」</div>
+
+<div class="card">
+  <label>今欲しい雰囲気（複数選択可）</label>
+  <div class="vibes">
+    <div class="vibe" onclick="toggle(this)" data-v="dark">🌑 Dark</div>
+    <div class="vibe" onclick="toggle(this)" data-v="punchy">💥 Punchy</div>
+    <div class="vibe" onclick="toggle(this)" data-v="warm">🔥 Warm</div>
+    <div class="vibe" onclick="toggle(this)" data-v="airy">🌬 Airy</div>
+    <div class="vibe" onclick="toggle(this)" data-v="gritty">🧱 Gritty</div>
+    <div class="vibe" onclick="toggle(this)" data-v="clean">✨ Clean</div>
+    <div class="vibe" onclick="toggle(this)" data-v="bass">🔊 Bassy</div>
+    <div class="vibe" onclick="toggle(this)" data-v="glitchy">⚡ Glitchy</div>
+  </div>
+</div>
+
+<div id="out"></div>
+
+<div class="vp"><b>価値:</b> フォルダ探索 30秒 → vibeタグで1秒。"dark + punchy" で即絞り込み、プレビュー→ドラッグ&ドロップ。</div>
+
+<div class="ft">
+  <b>本番版で追加される機能:</b><br>
+  ・ローカルのサンプルフォルダをスキャンして音響解析で自動タグ付け<br>
+  ・DAW プラグイン（FL / Ableton / Logic）として組込<br>
+  ・「前回のプロジェクトで使った音」を除外フィルタ<br>
+  ・プロジェクト履歴から "いつも同じ音を使いがち" 検出
+</div>
+
+<div class="src">Source: <a href="https://reddit.com/r/edmproduction/comments/1so67x9/" target="_blank">r/edmproduction post</a></div>
+
+<script>
+const SAMPLES = [
+  {name: 'Sub Bass 808 Deep', freq: 55, type: 'sine', dur: 1.2, tags: ['dark','bass','warm']},
+  {name: 'Snap Clap Tight', freq: 1200, type: 'square', dur: 0.15, tags: ['punchy','clean']},
+  {name: 'Foggy Pad Dmin', freq: 294, type: 'sawtooth', dur: 2.5, tags: ['dark','airy']},
+  {name: 'Distorted Kick', freq: 65, type: 'sawtooth', dur: 0.6, tags: ['punchy','gritty','bass']},
+  {name: 'Crystal Hat', freq: 6000, type: 'triangle', dur: 0.1, tags: ['airy','clean']},
+  {name: 'Glitch Bleep', freq: 2400, type: 'square', dur: 0.2, tags: ['glitchy','clean']},
+  {name: 'Warm Rhodes C', freq: 261, type: 'sine', dur: 1.8, tags: ['warm','clean']},
+  {name: 'Trap Hi-Hat Roll', freq: 8000, type: 'square', dur: 0.08, tags: ['punchy','glitchy']},
+  {name: 'Dark Cinematic Drone', freq: 110, type: 'sawtooth', dur: 3.0, tags: ['dark','warm']},
+  {name: 'Tape Vinyl Crackle', freq: 180, type: 'sawtooth', dur: 0.4, tags: ['gritty','warm']},
+  {name: 'Airy Vocal Chop', freq: 440, type: 'triangle', dur: 0.6, tags: ['airy','clean']},
+  {name: 'Punchy Tom Fill', freq: 130, type: 'sine', dur: 0.5, tags: ['punchy','warm']},
+];
+let active = new Set();
+let ctx = null;
+
+function toggle(el){
+  const v = el.dataset.v;
+  if(active.has(v)){ active.delete(v); el.classList.remove('on'); }
+  else { active.add(v); el.classList.add('on'); }
+  render();
+}
+
+function score(s){
+  if(active.size === 0) return -1;
+  let matches = 0;
+  for(const v of active) if(s.tags.includes(v)) matches++;
+  return matches;
+}
+
+function render(){
+  const out = document.getElementById('out');
+  if(active.size === 0){
+    out.innerHTML = '<div class="card" style="text-align:center;color:var(--t3);font-size:.8rem">vibe を選んでサンプルを絞り込む</div>';
+    return;
+  }
+  const ranked = SAMPLES.map(s=>({...s, _m: score(s)})).filter(s=>s._m > 0).sort((a,b)=>b._m - a._m);
+  if(ranked.length === 0){
+    out.innerHTML = '<div class="card" style="text-align:center;color:var(--t3);font-size:.8rem">該当サンプルなし</div>';
+    return;
+  }
+  out.innerHTML = '<div class="card"><label>' + ranked.length + ' 件マッチ</label>' + ranked.map((s,i)=>{
+    const tags = s.tags.map(t=>`<span class="t"${active.has(t)?' style="background:var(--gold);color:var(--bg)"':''}>${t}</span>`).join('');
+    return `<div class="sample">
+      <button class="play-btn" onclick="play(${i}, this)">▶</button>
+      <div class="sample-info">
+        <div class="sample-name">${s.name}</div>
+        <div class="sample-tags">${tags}</div>
+      </div>
+      <div class="match">${s._m}/${active.size}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function play(idx, btn){
+  const ranked = SAMPLES.map(s=>({...s, _m: score(s)})).filter(s=>s._m > 0).sort((a,b)=>b._m - a._m);
+  const s = ranked[idx];
+  if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = s.type; o.frequency.value = s.freq;
+  g.gain.setValueAtTime(0, ctx.currentTime);
+  g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + s.dur);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(); o.stop(ctx.currentTime + s.dur);
+  btn.classList.add('playing');
+  setTimeout(()=>btn.classList.remove('playing'), s.dur * 1000);
+}
+
+render();
+</script>
+</body></html>

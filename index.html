@@ -266,6 +266,35 @@ body{min-height:100dvh}
 
 @keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(196,160,89,.3)}50%{box-shadow:0 0 22px rgba(196,160,89,.6)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Demo Lab */
+.dlab-empty{color:var(--t3);font-size:.6rem;text-align:center;padding:.8rem;background:var(--s1);border-radius:8px}
+.dlab-meta{font-size:.5rem;color:var(--t3);margin-bottom:.5rem;text-align:right}
+.dcard{background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:.7rem .8rem;margin-bottom:.6rem;position:relative;transition:all .2s}
+.dcard.done-go{border-color:rgba(92,184,112,.3);background:rgba(92,184,112,.04)}
+.dcard.done-keep{border-color:rgba(196,160,89,.25);background:rgba(196,160,89,.04)}
+.dcard.done-drop{opacity:.45;border-color:rgba(196,91,91,.15)}
+.dcard-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.3rem}
+.dcard-title{font-size:.85rem;font-weight:700;color:var(--t1);line-height:1.3}
+.dcard-status{font-size:.5rem;padding:.1rem .35rem;border-radius:3px;white-space:nowrap;margin-left:.3rem}
+.dcard-status.go{background:rgba(92,184,112,.18);color:var(--grn)}
+.dcard-status.keep{background:rgba(196,160,89,.18);color:var(--gold)}
+.dcard-status.drop{background:rgba(196,91,91,.18);color:var(--red)}
+.dcard-prob{font-size:.62rem;color:var(--t2);line-height:1.5;margin-bottom:.4rem}
+.dcard-vp{font-size:.6rem;color:var(--t3);line-height:1.5;margin-bottom:.5rem;font-style:italic}
+.dcard-meta{display:flex;gap:.5rem;font-size:.5rem;color:var(--t3);margin-bottom:.5rem;flex-wrap:wrap}
+.dcard-meta .tag{background:var(--s2);padding:.1rem .35rem;border-radius:3px}
+.dcard-actions{display:flex;gap:.35rem;flex-wrap:wrap}
+.dcard-actions a,.dcard-actions button{flex:1;text-align:center;padding:.4rem .3rem;border-radius:6px;font-size:.55rem;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,.1);background:var(--s2);color:var(--t2);cursor:pointer;font-family:inherit;min-width:55px}
+.dcard-actions a.primary{background:var(--gold);color:var(--bg);border-color:var(--gold)}
+.dcard-actions button.go:hover{background:rgba(92,184,112,.2);color:var(--grn);border-color:var(--grn)}
+.dcard-actions button.keep:hover{background:rgba(196,160,89,.2);color:var(--gold);border-color:var(--gold)}
+.dcard-actions button.drop:hover{background:rgba(196,91,91,.2);color:var(--red);border-color:var(--red)}
+.dcard-actions button.sel-go{background:rgba(92,184,112,.2);color:var(--grn);border-color:var(--grn)}
+.dcard-actions button.sel-keep{background:rgba(196,160,89,.2);color:var(--gold);border-color:var(--gold)}
+.dcard-actions button.sel-drop{background:rgba(196,91,91,.2);color:var(--red);border-color:var(--red)}
+.dcard-note{width:100%;margin-top:.4rem;background:var(--s2);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:.4rem;color:var(--t1);font-size:.6rem;font-family:inherit;display:none}
+.dcard-note.on{display:block}
 </style>
 </head>
 <body>
@@ -336,6 +365,8 @@ body{min-height:100dvh}
   <div class="sec">Activity Log</div>
   <div id="actLog"></div>
 
+  <div class="sec" style="display:flex;justify-content:space-between;align-items:center">💡 Demo Lab <button id="btnDemoFbCopy" style="font-size:.45rem;padding:.15rem .4rem;border-radius:4px;border:1px solid rgba(255,255,255,.15);background:var(--s1);color:var(--t2);cursor:pointer;font-family:inherit">📋 FBをコピー</button></div>
+  <div id="demoLab"></div>
 
   <div class="sec" style="display:flex;justify-content:space-between;align-items:center">Weekly Review <button id="btnWeeklyCopy" style="font-size:.45rem;padding:.15rem .4rem;border-radius:4px;border:1px solid rgba(255,255,255,.15);background:var(--s1);color:var(--t2);cursor:pointer;font-family:inherit">📋 Claudeに共有</button></div>
   <div id="weeklyReview"></div>
@@ -2587,6 +2618,106 @@ render();
 syncPull();
 fetchYT();
 fetchNN();
+
+// ── Demo Lab ──
+async function renderDemoLab(){
+  const el = $('#demoLab');
+  if(!el) return;
+  if(!DB.demoFeedback) DB.demoFeedback = {};
+  try{
+    const r = await fetch('demos/latest.json?_=' + Date.now(), {cache:'no-store'});
+    if(!r.ok) throw new Error('no manifest');
+    const m = await r.json();
+    const demos = m.demos || [];
+    if(demos.length === 0){
+      el.innerHTML = '<div class="dlab-empty">今日のデモはまだ生成されていません</div>';
+      return;
+    }
+    const fbAll = DB.demoFeedback;
+    el.innerHTML = `<div class="dlab-meta">${m.date} · ${demos.length}件 · generator: ${m.generator||'auto'}</div>` +
+      demos.map(d => {
+        const fbKey = `${m.date}_${d.id}`;
+        const fb = fbAll[fbKey] || {};
+        const st = fb.status || '';
+        const doneClass = st === 'go' ? 'done-go' : st === 'keep' ? 'done-keep' : st === 'drop' ? 'done-drop' : '';
+        const stLabel = st === 'go' ? '✓ 進める' : st === 'keep' ? '◌ 保留' : st === 'drop' ? '✗ 却下' : '';
+        const stClass = st ? ` dcard-status ${st}` : 'dcard-status';
+        const stTag = st ? `<span class="${stClass}">${stLabel}</span>` : '';
+        return `<div class="dcard ${doneClass}" data-fbkey="${fbKey}">
+          <div class="dcard-head">
+            <div class="dcard-title">${(d.title||'').replace(/</g,'&lt;')}</div>
+            ${stTag}
+          </div>
+          <div class="dcard-prob">${(d.problem||'').replace(/</g,'&lt;')}</div>
+          <div class="dcard-vp">💡 ${(d.value_prop||'').replace(/</g,'&lt;')}</div>
+          <div class="dcard-meta">
+            <span class="tag">🎯 ${(d.target_user||'').replace(/</g,'&lt;')}</span>
+            <span class="tag">実装度 ${d.feasibility||'-'}/10</span>
+            <span class="tag">市場 ${d.market_signal||'-'}/10</span>
+          </div>
+          <div class="dcard-actions">
+            <a href="${d.demo_path}" target="_blank" class="primary">▶ 試す</a>
+            <button class="go ${st==='go'?'sel-go':''}" data-act="go">進める</button>
+            <button class="keep ${st==='keep'?'sel-keep':''}" data-act="keep">保留</button>
+            <button class="drop ${st==='drop'?'sel-drop':''}" data-act="drop">却下</button>
+            <button data-act="note">✏️</button>
+          </div>
+          <textarea class="dcard-note ${fb.note?'on':''}" placeholder="メモ / FB（次の日にAIが読み込む）">${fb.note||''}</textarea>
+        </div>`;
+      }).join('');
+
+    // wire up actions
+    el.querySelectorAll('.dcard').forEach(card => {
+      const fbKey = card.dataset.fbkey;
+      card.querySelectorAll('button').forEach(b => {
+        b.addEventListener('click', () => {
+          const act = b.dataset.act;
+          if(act === 'note'){
+            const n = card.querySelector('.dcard-note');
+            n.classList.toggle('on');
+            if(n.classList.contains('on')) n.focus();
+            return;
+          }
+          const prev = DB.demoFeedback[fbKey] || {};
+          const newSt = prev.status === act ? '' : act;
+          DB.demoFeedback[fbKey] = {
+            ...prev,
+            status: newSt,
+            demo_id: fbKey.split('_').slice(3).join('_'),
+            date: fbKey.split('_').slice(0,3).join('-'),
+            updated: new Date().toISOString(),
+          };
+          save();
+          renderDemoLab();
+        });
+      });
+      const note = card.querySelector('.dcard-note');
+      note.addEventListener('blur', () => {
+        const prev = DB.demoFeedback[fbKey] || {};
+        DB.demoFeedback[fbKey] = {
+          ...prev,
+          note: note.value,
+          updated: new Date().toISOString(),
+        };
+        save();
+      });
+    });
+  }catch(e){
+    el.innerHTML = '<div class="dlab-empty">デモをまだ配置中です（数分後に再訪問）</div>';
+    console.warn('demoLab', e);
+  }
+}
+renderDemoLab();
+const _dfbBtn = $('#btnDemoFbCopy');
+if(_dfbBtn) _dfbBtn.addEventListener('click', () => {
+  const fb = DB.demoFeedback || {};
+  const text = JSON.stringify(fb, null, 2);
+  navigator.clipboard.writeText(text).then(()=>{
+    _dfbBtn.textContent = '✓ コピー済';
+    setTimeout(()=>{_dfbBtn.textContent = '📋 FBをコピー';}, 1500);
+  });
+});
+
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 const _syncDot=$('#syncDot');
 if(_syncDot)_syncDot.addEventListener('click',()=>{const c=gc();if(!c.id||!c.token){openModal('sync');}else{syncPull();}});

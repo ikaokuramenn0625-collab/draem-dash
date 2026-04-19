@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Journal → Action Extractor — Demo</title>
+<style>
+:root{--bg:#0D0906;--s1:rgba(255,255,255,.04);--s2:rgba(255,255,255,.08);--gold:#C4A059;--gl:#DFC07A;--t1:#E8DDD0;--t2:#A89585;--t3:#6D5A4A;--grn:#5CB870;--red:#C45B5B}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t1);font-family:-apple-system,'Hiragino Sans',sans-serif;padding:1rem;max-width:680px;margin:0 auto;font-size:14px;line-height:1.5}
+h1{font-size:1.3rem;color:var(--gold);margin-bottom:.4rem}
+.sub{color:var(--t2);font-size:.8rem;margin-bottom:1rem}
+.card{background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:1rem;margin-bottom:.8rem}
+.prob{background:rgba(196,91,91,.08);border-left:3px solid var(--red);padding:.6rem .8rem;border-radius:6px;margin-bottom:1rem;font-size:.85rem}
+.prob b{color:var(--red)}
+label{display:block;font-size:.7rem;color:var(--t3);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.05em}
+textarea{width:100%;background:var(--s2);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.6rem;color:var(--t1);font-family:inherit;font-size:.85rem;min-height:180px;line-height:1.5}
+button{background:var(--gold);color:var(--bg);border:0;padding:.55rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;font-size:.85rem;margin-top:.5rem}
+button:hover{background:var(--gl)}
+.action{background:var(--s2);border-left:3px solid var(--gold);padding:.6rem .8rem;border-radius:6px;margin-bottom:.5rem;display:flex;gap:.6rem;align-items:flex-start}
+.action-text{flex:1}
+.action-meta{font-size:.7rem;color:var(--t3);margin-top:.2rem}
+.action-meta .tag{display:inline-block;background:rgba(196,160,89,.15);color:var(--gold);padding:.1rem .4rem;border-radius:3px;margin-right:.3rem;font-size:.65rem}
+.cbx{width:18px;height:18px;margin-top:.15rem;cursor:pointer}
+.vp{background:rgba(92,184,112,.08);border-left:3px solid var(--grn);padding:.6rem .8rem;border-radius:6px;margin:1rem 0;font-size:.82rem}
+.ft{color:var(--t3);font-size:.7rem;margin-top:1rem;line-height:1.6}
+.ft b{color:var(--gold)}
+.src{color:var(--t3);font-size:.65rem;margin-top:.5rem}
+.src a{color:var(--t3)}
+.empty{color:var(--t3);text-align:center;padding:1.5rem;font-size:.8rem}
+</style></head>
+<body>
+<h1>📓 Journal → Actions</h1>
+<div class="sub">自己認識は高いのに行動に移せない人向け — ジャーナルを今日のタスクに変換</div>
+
+<div class="prob"><b>痛み:</b> 毎日ジャーナル書いてアイデアは山ほど、でも実際の output はゼロに近い。頭の中の思考と手の動きのギャップが大きい。</div>
+
+<div class="card">
+  <label>今朝のジャーナル / 考えていること</label>
+  <textarea id="jn" placeholder="例：
+クライアント A の提案書、キーメッセージが弱い気がする。もっとターゲットの痛みに絞り込みたい。
+今週は音楽活動の時間が減ってる。水曜日の夜は必ず2時間確保したい。
+新曲のコーラス、歌詞がまだ降りてこない。明日メロディ先行で試してみよう。
+このアプリのアイデア、本当に需要あるのか検証したい。3人にヒアリングしたほうがよさそう。"></textarea>
+  <button onclick="extract()">アクションに変換</button>
+</div>
+
+<div id="out"></div>
+
+<div class="vp"><b>価値:</b> 5分のジャーナル → 3-5個の具体アクション。思考が終わった瞬間に「今日やること」に変わる。</div>
+
+<div class="ft">
+  <b>本番版で追加される機能:</b><br>
+  ・Claude API で文脈理解（今は heuristic）<br>
+  ・音声入力（喋る → 起こす → アクション化）<br>
+  ・Notion / GTD ツールへ自動連携<br>
+  ・「やったかどうか」を夜に自動リマインド
+</div>
+
+<div class="src">Source: <a href="https://reddit.com/r/productivity/comments/1skudic/" target="_blank">r/productivity post</a></div>
+
+<script>
+const VERBS = ['試す','やる','書く','送る','作る','考える','聞く','決める','ヒアリング','予約','連絡','整理','検証','確保','設定','測定','読む'];
+const VERB_EN = ['try','do','write','send','make','think','ask','decide','talk','book','contact','organize','verify','reserve','set','measure','read','build','ship','check'];
+const TIME_WORDS = ['今日','明日','今週','水曜','木曜','金曜','月','火','週末','来週','朝','夜','昼','後で'];
+
+function extract(){
+  const text = document.getElementById('jn').value;
+  const out = document.getElementById('out');
+  if(!text.trim()){
+    out.innerHTML = '<div class="empty">ジャーナルを入力してください</div>';
+    return;
+  }
+  const sentences = text.split(/[。\n.!?]/).map(s=>s.trim()).filter(s=>s.length > 5);
+  const actions = [];
+  for(const s of sentences){
+    let score = 0;
+    const hasVerb = VERBS.some(v=>s.includes(v)) || VERB_EN.some(v=>s.toLowerCase().includes(v));
+    const hasTime = TIME_WORDS.some(t=>s.includes(t));
+    const hasIntent = /(したい|しよう|すべき|やりたい|やる|should|want to|gonna|will)/i.test(s);
+    const hasNumber = /\d+/.test(s);
+    if(hasVerb) score += 2;
+    if(hasTime) score += 2;
+    if(hasIntent) score += 3;
+    if(hasNumber) score += 1;
+    if(score >= 3){
+      actions.push({text: s, score, tags: {time: hasTime, verb: hasVerb, intent: hasIntent}});
+    }
+  }
+  actions.sort((a,b)=>b.score - a.score);
+  const top = actions.slice(0, 6);
+  if(top.length === 0){
+    out.innerHTML = '<div class="card empty">アクション化できる文が見つかりませんでした。「〜したい」「〜する」などの意志を含む文を書いてみてください。</div>';
+    return;
+  }
+  out.innerHTML = '<div class="card"><label>今日のアクション</label>' + top.map(a=>{
+    const tags = [];
+    if(a.tags.time) tags.push('<span class="tag">⏰ 時期あり</span>');
+    if(a.tags.verb) tags.push('<span class="tag">🎯 動詞</span>');
+    if(a.tags.intent) tags.push('<span class="tag">💪 意志</span>');
+    return `<div class="action">
+      <input type="checkbox" class="cbx">
+      <div class="action-text">${a.text.replace(/</g,'&lt;')}<div class="action-meta">${tags.join('')}</div></div>
+    </div>`;
+  }).join('') + '</div>';
+}
+</script>
+</body></html>

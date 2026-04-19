@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scope Change Tracker — Demo</title>
+<style>
+:root{--bg:#0D0906;--s1:rgba(255,255,255,.04);--s2:rgba(255,255,255,.08);--gold:#C4A059;--gl:#DFC07A;--t1:#E8DDD0;--t2:#A89585;--t3:#6D5A4A;--grn:#5CB870;--red:#C45B5B}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t1);font-family:-apple-system,'Hiragino Sans',sans-serif;padding:1rem;max-width:680px;margin:0 auto;font-size:14px;line-height:1.5}
+h1{font-size:1.3rem;color:var(--gold);margin-bottom:.4rem}
+.sub{color:var(--t2);font-size:.8rem;margin-bottom:1rem}
+.card{background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:1rem;margin-bottom:.8rem}
+.prob{background:rgba(196,91,91,.08);border-left:3px solid var(--red);padding:.6rem .8rem;border-radius:6px;margin-bottom:1rem;font-size:.85rem}
+.prob b{color:var(--red)}
+label{display:block;font-size:.7rem;color:var(--t3);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.05em}
+input,textarea{width:100%;background:var(--s2);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.5rem;color:var(--t1);font-family:inherit;font-size:.85rem;margin-bottom:.5rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+button{background:var(--gold);color:var(--bg);border:0;padding:.55rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;font-size:.85rem}
+button.sec{background:var(--s2);color:var(--t1);border:1px solid rgba(255,255,255,.1)}
+.change{padding:.7rem .8rem;background:var(--s2);border-radius:8px;margin-bottom:.5rem;border-left:3px solid var(--gold)}
+.change.in{border-left-color:var(--grn)}
+.change.out{border-left-color:var(--red)}
+.change-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.2rem}
+.change-desc{font-weight:600;font-size:.88rem}
+.change-type{font-size:.65rem;padding:.1rem .4rem;border-radius:3px;background:rgba(196,160,89,.15);color:var(--gold)}
+.change-type.in{background:rgba(92,184,112,.2);color:var(--grn)}
+.change-type.out{background:rgba(196,91,91,.2);color:var(--red)}
+.change-meta{font-size:.7rem;color:var(--t3);margin-top:.3rem;display:flex;gap:.8rem}
+.summary{background:rgba(196,160,89,.08);border:1px solid rgba(196,160,89,.2);border-radius:8px;padding:.8rem;margin-bottom:.8rem;font-size:.85rem}
+.summary-row{display:flex;justify-content:space-between;padding:.25rem 0;border-bottom:1px dashed rgba(255,255,255,.06)}
+.summary-row:last-child{border-bottom:0}
+.summary-row b{color:var(--gl)}
+.vp{background:rgba(92,184,112,.08);border-left:3px solid var(--grn);padding:.6rem .8rem;border-radius:6px;margin:1rem 0;font-size:.82rem}
+.ft{color:var(--t3);font-size:.7rem;margin-top:1rem;line-height:1.6}
+.ft b{color:var(--gold)}
+.src{color:var(--t3);font-size:.65rem;margin-top:.5rem}
+.src a{color:var(--t3)}
+.template{background:var(--s2);padding:.6rem .8rem;border-radius:6px;font-size:.78rem;white-space:pre-wrap;color:var(--t2);line-height:1.5;font-family:ui-monospace,monospace}
+</style></head>
+<body>
+<h1>📐 Scope Change Tracker</h1>
+<div class="sub">フリーランス/エージェンシー向け・クライアント要望追加を即見積化</div>
+
+<div class="prob"><b>痛み:</b> webdev投稿 — 「クライアント承認後に半分変更要望が来る。追加作業の可視化・見積提示の手間が地獄。言葉遣いも気を使う」</div>
+
+<div class="card">
+  <div class="row2">
+    <div>
+      <label>プロジェクト名</label>
+      <input id="proj" value="Acme サイトリニューアル">
+    </div>
+    <div>
+      <label>時給レート (¥)</label>
+      <input id="rate" type="number" value="8000">
+    </div>
+  </div>
+  <label>追加された要望 / 削除された機能</label>
+  <textarea id="desc" placeholder="例: ログイン画面に SNS ログインを追加したい" rows="2"></textarea>
+  <div class="row2">
+    <div>
+      <label>見積工数 (時間)</label>
+      <input id="hrs" type="number" value="4" step="0.5">
+    </div>
+    <div>
+      <label>種別</label>
+      <select id="ty" style="width:100%;background:var(--s2);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.5rem;color:var(--t1);font-family:inherit;font-size:.85rem;margin-bottom:.5rem">
+        <option value="in">➕ 追加</option>
+        <option value="out">➖ 削除</option>
+        <option value="change">✏️ 変更</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:flex;gap:.5rem">
+    <button onclick="addChange()">記録</button>
+    <button class="sec" onclick="clearAll()">クリア</button>
+  </div>
+</div>
+
+<div id="summary"></div>
+<div id="changes"></div>
+<div id="tmpl"></div>
+
+<div class="vp"><b>価値:</b> 要望を5秒でログ → 累計インパクト（+X時間 / ¥Y）を可視化 → クライアントへのメール文面まで自動生成。</div>
+
+<div class="ft">
+  <b>本番版で追加される機能:</b><br>
+  ・Slack / メールからの要望を自動取り込み<br>
+  ・契約書の合意範囲を自動突き合わせ（スコープ外検知）<br>
+  ・クライアントと共有できる Web ダッシュボード（閲覧専用）<br>
+  ・請求書への自動反映
+</div>
+
+<div class="src">Source: <a href="https://reddit.com/r/webdev" target="_blank">r/webdev post</a></div>
+
+<script>
+let changes = JSON.parse(localStorage.getItem('scope_changes') || '[]');
+
+function save(){ localStorage.setItem('scope_changes', JSON.stringify(changes)); render(); }
+
+function addChange(){
+  const d = document.getElementById('desc').value.trim();
+  const h = parseFloat(document.getElementById('hrs').value) || 0;
+  const t = document.getElementById('ty').value;
+  if(!d){ alert('内容を入力'); return; }
+  changes.push({desc: d, hrs: h, type: t, ts: Date.now()});
+  document.getElementById('desc').value = '';
+  document.getElementById('hrs').value = '4';
+  save();
+}
+
+function clearAll(){
+  if(!confirm('全削除しますか？')) return;
+  changes = []; save();
+}
+
+function render(){
+  const rate = parseFloat(document.getElementById('rate').value) || 0;
+  const proj = document.getElementById('proj').value || 'プロジェクト';
+  const inH = changes.filter(c=>c.type==='in').reduce((s,c)=>s+c.hrs,0);
+  const outH = changes.filter(c=>c.type==='out').reduce((s,c)=>s+c.hrs,0);
+  const chH = changes.filter(c=>c.type==='change').reduce((s,c)=>s+c.hrs,0);
+  const netH = inH + chH - outH;
+  const netY = netH * rate;
+
+  const summary = document.getElementById('summary');
+  if(changes.length === 0){
+    summary.innerHTML = '';
+  } else {
+    summary.innerHTML = `<div class="summary">
+      <div class="summary-row"><span>追加工数</span><b>+${inH}h</b></div>
+      <div class="summary-row"><span>削除工数</span><b>-${outH}h</b></div>
+      <div class="summary-row"><span>変更工数</span><b>${chH}h</b></div>
+      <div class="summary-row" style="font-size:1rem;padding-top:.4rem;border-top:1px solid rgba(255,255,255,.1);border-bottom:0"><span>純増</span><b>${netH}h / ¥${netY.toLocaleString()}</b></div>
+    </div>`;
+  }
+
+  const c = document.getElementById('changes');
+  c.innerHTML = changes.slice().reverse().map(ch=>{
+    const labels = {in:'➕ 追加', out:'➖ 削除', change:'✏️ 変更'};
+    return `<div class="change ${ch.type}">
+      <div class="change-head">
+        <div class="change-desc">${ch.desc.replace(/</g,'&lt;')}</div>
+        <div class="change-type ${ch.type}">${labels[ch.type]}</div>
+      </div>
+      <div class="change-meta"><span>${ch.hrs}h</span><span>¥${(ch.hrs*rate).toLocaleString()}</span><span>${new Date(ch.ts).toLocaleDateString('ja-JP')}</span></div>
+    </div>`;
+  }).join('');
+
+  const t = document.getElementById('tmpl');
+  if(changes.length > 0){
+    const lines = changes.map(ch=>`・${ch.desc}（${ch.type==='out'?'-':'+'}${ch.hrs}h）`).join('\n');
+    t.innerHTML = `<div class="card"><label>クライアント宛メール文面（自動生成）</label>
+    <div class="template">${proj} の件、現時点の変更サマリです。
+
+【追加・変更された要望】
+${lines}
+
+当初見積から純増 ${netH} 時間 / ¥${netY.toLocaleString()} となります。
+進行にあたって以下のいずれかをご確認ください：
+1. 追加請求で進める
+2. 既存スコープから削除する項目を検討する
+3. 一部を次フェーズへ送る
+
+ご希望をお聞かせいただけますと幸いです。</div></div>`;
+  } else {
+    t.innerHTML = '';
+  }
+}
+
+render();
+</script>
+</body></html>

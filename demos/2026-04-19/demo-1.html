@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reddit Thread Finder — Demo</title>
+<style>
+:root{--bg:#0D0906;--s1:rgba(255,255,255,.04);--s2:rgba(255,255,255,.08);--gold:#C4A059;--gl:#DFC07A;--t1:#E8DDD0;--t2:#A89585;--t3:#6D5A4A;--grn:#5CB870;--red:#C45B5B}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t1);font-family:-apple-system,'Hiragino Sans',sans-serif;padding:1rem;max-width:680px;margin:0 auto;font-size:14px;line-height:1.5}
+h1{font-size:1.3rem;color:var(--gold);margin-bottom:.4rem}
+.sub{color:var(--t2);font-size:.8rem;margin-bottom:1rem}
+.card{background:var(--s1);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:.8rem;margin-bottom:.6rem}
+.prob{background:rgba(196,91,91,.08);border-left:3px solid var(--red);padding:.6rem .8rem;border-radius:6px;margin-bottom:1rem;font-size:.85rem}
+.prob b{color:var(--red)}
+label{display:block;font-size:.7rem;color:var(--t3);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.05em}
+input,textarea,select{width:100%;background:var(--s2);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:.5rem;color:var(--t1);font-family:inherit;font-size:.85rem;margin-bottom:.6rem}
+button{background:var(--gold);color:var(--bg);border:0;padding:.55rem 1rem;border-radius:6px;font-weight:700;cursor:pointer;font-size:.85rem}
+button:hover{background:var(--gl)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.thread{border-left:2px solid rgba(196,160,89,.3);padding:.5rem .7rem;margin-bottom:.5rem;font-size:.82rem}
+.thread-title{color:var(--t1);font-weight:600;line-height:1.4;margin-bottom:.2rem}
+.thread-meta{color:var(--t3);font-size:.7rem}
+.thread-meta .good{color:var(--grn)}
+.thread a{color:var(--gold);text-decoration:none}
+.vp{background:rgba(92,184,112,.08);border-left:3px solid var(--grn);padding:.6rem .8rem;border-radius:6px;margin:1rem 0;font-size:.82rem}
+.ft{color:var(--t3);font-size:.7rem;margin-top:1rem;line-height:1.6}
+.ft b{color:var(--gold)}
+.src{color:var(--t3);font-size:.65rem;margin-top:.5rem}
+.src a{color:var(--t3)}
+.spin{display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style></head>
+<body>
+<h1>🎯 Reddit Thread Finder</h1>
+<div class="sub">マーケター向け・貢献できる Reddit スレッドを自動発掘</div>
+
+<div class="prob"><b>痛み:</b> Reddit マーケで「自分の事業に自然に触れられるスレッド」を探すのに時間がかかりすぎる。古いスレッドばかり出たり、人気スレでは埋もれる。</div>
+
+<div class="card">
+  <label>あなたの事業 / キーワード</label>
+  <input id="kw" value="productivity app" placeholder="例: productivity app, SaaS tool">
+  <label>ターゲット subreddit（カンマ区切り）</label>
+  <input id="subs" value="productivity,SideProject,Entrepreneur" placeholder="productivity, SideProject">
+  <label>スレッドの希望条件</label>
+  <select id="filter">
+    <option value="sweet">🎯 新しめ & 適度に活発（狙い目）</option>
+    <option value="new">🆕 新しい順</option>
+    <option value="hot">🔥 活発順</option>
+  </select>
+  <button id="go" onclick="search()">スレッドを探す</button>
+</div>
+
+<div id="out"></div>
+
+<div class="vp"><b>価値:</b> 1時間の手動検索 → 5秒。「新しすぎず古すぎない・活発すぎず埋もれない」狙い目スレッドを自動でスコアリング。</div>
+
+<div class="ft">
+  <b>本番版で追加される機能:</b><br>
+  ・複数キーワードのOR/AND検索<br>
+  ・「コメント内容」まで読んで文脈マッチ<br>
+  ・毎朝メールで今日の狙い目スレッド5件を配信<br>
+  ・コメント下書き生成（Claude API 経由）
+</div>
+
+<div class="src">Source: <a href="https://reddit.com/r/DigitalMarketing/comments/1slqb8j/how_do_you_find_the_right_threads_to_comment_on/" target="_blank">r/DigitalMarketing post</a></div>
+
+<script>
+async function search(){
+  const kw = document.getElementById('kw').value.trim();
+  const subs = document.getElementById('subs').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const filter = document.getElementById('filter').value;
+  const out = document.getElementById('out');
+  const btn = document.getElementById('go');
+  btn.disabled = true;
+  out.innerHTML = '<div class="card"><span class="spin">◐</span> 検索中...</div>';
+
+  const results = [];
+  for(const sub of subs){
+    try{
+      const r = await fetch(`https://www.reddit.com/r/${sub}/search.json?q=${encodeURIComponent(kw)}&restrict_sr=1&sort=new&t=month&limit=25`);
+      const d = await r.json();
+      for(const c of (d.data?.children||[])){
+        const p = c.data;
+        const ageH = (Date.now()/1000 - p.created_utc) / 3600;
+        if(ageH > 24*14) continue; // within 2 weeks
+        // sweet spot: 6-72h old, 2-30 comments
+        let score = 0;
+        if(filter === 'sweet'){
+          if(ageH >= 6 && ageH <= 96) score += 5;
+          if(p.num_comments >= 2 && p.num_comments <= 40) score += 5;
+          score -= Math.abs(Math.log(Math.max(1, p.num_comments)) - 2.5);
+        } else if(filter === 'new'){
+          score = -ageH;
+        } else {
+          score = p.num_comments + p.score*0.5;
+        }
+        results.push({...p, _score: score, _ageH: ageH, _sub: sub});
+      }
+    }catch(e){
+      console.error(sub, e);
+    }
+  }
+
+  results.sort((a,b)=>b._score - a._score);
+  const top = results.slice(0, 10);
+
+  if(top.length === 0){
+    out.innerHTML = '<div class="card">該当するスレッドが見つかりませんでした。キーワードを変えて再試行してください。</div>';
+  } else {
+    out.innerHTML = top.map(p=>{
+      const ageStr = p._ageH < 1 ? `${Math.round(p._ageH*60)}分前` : p._ageH < 24 ? `${Math.round(p._ageH)}時間前` : `${Math.round(p._ageH/24)}日前`;
+      const goodSpot = (p._ageH >= 6 && p._ageH <= 96 && p.num_comments >= 2 && p.num_comments <= 40);
+      return `<div class="thread">
+        <div class="thread-title"><a href="https://reddit.com${p.permalink}" target="_blank">${p.title.replace(/</g,'&lt;')}</a></div>
+        <div class="thread-meta">r/${p._sub} · ${ageStr} · 💬${p.num_comments} · ⬆${p.score} ${goodSpot?'<span class="good">✓ 狙い目</span>':''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  btn.disabled = false;
+}
+</script>
+</body></html>
